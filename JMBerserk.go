@@ -10,6 +10,22 @@ import (
 	"os"
 )
 
+type hero struct {
+	hitBox pixel.Rect
+	sprite pixel.Sprite
+	lives  int
+}
+
+type darkMage struct {
+	hitBox pixel.Rect
+	sprite pixel.Sprite
+}
+
+type levelBoard struct {
+	wallTileList []pixel.Rect
+	levelDescrpt string
+}
+
 func main() {
 	pixelgl.Run(run)
 }
@@ -18,31 +34,53 @@ func run() {
 
 	win, _ := initializeWindow()
 
-	tileList := makeTiles(win)
+	windowTileList := makeTiles(win)
 
-	floorWallSheet, _ := loadPicture("floor_wall_sheet.png")
+	wallBlockPic, _ := loadPicture("wall_block.png")
 
-	batch := makeWallFloorBatch(floorWallSheet)
+	batch := makeWallBatch(wallBlockPic)
 	imd := imdraw.New(nil)
-
-	wallFloorFrames := makeWallFloorSpriteFrames(floorWallSheet)
 
 	batch.Clear()
 	// floorBlock := pixel.NewSprite(floorWallSheet, wallFloorFrames[0])
-	wallBlock := pixel.NewSprite(floorWallSheet, wallFloorFrames[1])
+	wallBlockSprite := pixel.NewSprite(wallBlockPic, wallBlockPic.Bounds())
 
-	for i := 0; i < len(tileList); i++ {
-		if i%2 == 0 {
-			wallBlock.Draw(batch, pixel.IM.Moved(tileList[i].Center()))
-		} else {
-			//	wallBlock.Draw(batch, pixel.IM.Moved(tileList[i].Center()))
-		}
+	// level 1 wall setup
+	var level1WallList []pixel.Rect
+	level1Board := levelBoard{level1WallList, "Level 1"}
+	for i := 0; i < 24; i++ {
+		level1Board.wallTileList = append(level1Board.wallTileList, windowTileList[i])
+		wallBlockSprite.Draw(batch, pixel.IM.Moved(windowTileList[i].Center()))
+	}
+	for i := 24; i < 456; i += 24 {
+		level1Board.wallTileList = append(level1Board.wallTileList, windowTileList[i])
+		wallBlockSprite.Draw(batch, pixel.IM.Moved(windowTileList[i].Center()))
+	}
+	for i := 47; i < 456; i += 24 {
+		level1Board.wallTileList = append(level1Board.wallTileList, windowTileList[i])
+		wallBlockSprite.Draw(batch, pixel.IM.Moved(windowTileList[i].Center()))
+	}
+	for i := 456; i < 465; i++ {
+		level1Board.wallTileList = append(level1Board.wallTileList, windowTileList[i])
+		wallBlockSprite.Draw(batch, pixel.IM.Moved(windowTileList[i].Center()))
+	}
+	for i := 471; i < len(windowTileList); i++ {
+		level1Board.wallTileList = append(level1Board.wallTileList, windowTileList[i])
+		wallBlockSprite.Draw(batch, pixel.IM.Moved(windowTileList[i].Center()))
+	}
+	for i := 125; i < 342; i += 24 {
+		level1Board.wallTileList = append(level1Board.wallTileList, windowTileList[i])
+		wallBlockSprite.Draw(batch, pixel.IM.Moved(windowTileList[i].Center()))
+	}
+	for i := 246; i < 258; i++ {
+		level1Board.wallTileList = append(level1Board.wallTileList, windowTileList[i])
+		wallBlockSprite.Draw(batch, pixel.IM.Moved(windowTileList[i].Center()))
 	}
 
 	// make imd to and fill with tile rectangles
-	for i := 0; i < len(tileList); i++ {
+	for i := 0; i < len(windowTileList); i++ {
 		imd.Color = colornames.White
-		imd.Push(tileList[i].Min, tileList[i].Max)
+		imd.Push(windowTileList[i].Min, windowTileList[i].Max)
 		imd.Rectangle(1)
 	}
 
@@ -77,9 +115,9 @@ func loadPicture(path string) (pixel.Picture, error) {
 
 func initializeWindow() (*pixelgl.Window, pixelgl.WindowConfig) {
 	cfg := pixelgl.WindowConfig{
-		Title: "Wizard Berserk",
+		Title:  "Wizard Berserk",
 		Bounds: pixel.R(0, 0, 767, 639),
-		VSync: true,
+		VSync:  true,
 	}
 	win, err := pixelgl.NewWindow(cfg)
 	if err != nil {
@@ -98,21 +136,9 @@ func makeTiles(window *pixelgl.Window) []pixel.Rect {
 	return tiles
 }
 
-func makeWallFloorBatch(pic pixel.Picture) *pixel.Batch {
+func makeWallBatch(pic pixel.Picture) *pixel.Batch {
 	batch := pixel.NewBatch(&pixel.TrianglesData{}, pic)
 	return batch
 }
 
-func makeWallFloorSpriteFrames(pic pixel.Picture) []pixel.Rect {
-	var floorWallSpriteFrames []pixel.Rect
-	for x := pic.Bounds().Min.X; x < pic.Bounds().Max.X; x += 32 {
-		for y := pic.Bounds().Min.Y; y < pic.Bounds().Max.Y; y += 32 {
-			floorWallSpriteFrames = append(floorWallSpriteFrames, pixel.R(x, y, x+32, y+32))
-		}
-	}
-	return floorWallSpriteFrames
-}
-
 // create board for level 1 - first determine which tiles will be
-
-
