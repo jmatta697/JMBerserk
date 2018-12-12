@@ -30,7 +30,7 @@ type level struct {
 }
 
 type playArea struct {
-	levelEnvironment *level
+	levelEnvironment level
 	enemyList        []darkMage
 }
 
@@ -47,24 +47,7 @@ func run() {
 	// all window tiles
 	windowTileList := makeTiles(win)
 
-	// loaded pics from assets
-	wallBlockPic, _ := loadPicture("wall_block.png")
-	heroPic, _ := loadPicture("mage_0.png")
-	darkMagePic, _ := loadPicture("dark_mage.png")
-
-	// general use wall batch
-	// wallBatch := makeWallBatch(wallBlockPic)
-
 	imd := imdraw.New(nil)
-
-	// wallBatch.Clear()
-	// floorBlock := pixel.NewSprite(floorWallSheet, wallFloorFrames[0])
-	wallBlockSprite := pixel.NewSprite(wallBlockPic, wallBlockPic.Bounds())
-	heroSprite := pixel.NewSprite(heroPic, heroPic.Bounds())
-	darkMageSprite := pixel.NewSprite(darkMagePic, darkMagePic.Bounds())
-
-	// level 1 wall setup
-	level1Board := makeLevel1(wallBlockPic, wallBlockSprite, windowTileList)
 
 	// make imd to and fill with tile rectangles
 	for i := 0; i < len(windowTileList); i++ {
@@ -73,10 +56,27 @@ func run() {
 		imd.Rectangle(1)
 	}
 
+	// loaded pics from assets
+	wallBlockPic, _ := loadPicture("wall_block.png")
+	heroPic, _ := loadPicture("mage_0.png")
+	darkMagePic, _ := loadPicture("dark_mage.png")
+
+	// general use wall batch
+	// wallBatch := makeWallBatch(wallBlockPic)
+	// wallBatch.Clear()
+	// floorBlock := pixel.NewSprite(floorWallSheet, wallFloorFrames[0])
+	wallBlockSprite := pixel.NewSprite(wallBlockPic, wallBlockPic.Bounds())
+	// heroSprite := pixel.NewSprite(heroPic, heroPic.Bounds())
+	darkMageSprite := pixel.NewSprite(darkMagePic, darkMagePic.Bounds())
+
+	// level 1 wall setup
+	level1Board := makeLevel1(wallBlockPic, wallBlockSprite, windowTileList)
+
 	// main game loop
 	for !win.Closed() {
 
 		// gameOver := false
+		playArea = makePlayArea(level1Board, *darkMageSprite, windowTileList)
 
 		for !win.Closed() {
 			win.Clear(colornames.Darkgrey)
@@ -184,12 +184,7 @@ func makeLevel1(wallPic pixel.Picture, wallSprite *pixel.Sprite, winTileLst []pi
 	return level1
 }
 
-func makeEnemyBatch(pic pixel.Picture) *pixel.Batch {
-	batch := pixel.NewBatch(&pixel.TrianglesData{}, pic)
-	return batch
-}
-
-func makePlayArea(lvl *level, hroObj *hero, enemySpite pixel.Sprite, winTileList []pixel.Rect) *playArea {
+func makePlayArea(lvl level, enemySpite pixel.Sprite, winTileList []pixel.Rect) playArea {
 	var playArea playArea
 
 	// initialize play area enemy list
@@ -210,6 +205,11 @@ func makePlayArea(lvl *level, hroObj *hero, enemySpite pixel.Sprite, winTileList
 		darkMageObj := darkMage{enemySpite, enemyHitBox}
 		enemyList = append(enemyList, darkMageObj)
 	}
+
+	playArea.levelEnvironment = lvl
+	playArea.enemyList = enemyList
+
+	return playArea
 
 }
 
