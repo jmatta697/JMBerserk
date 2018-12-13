@@ -9,12 +9,26 @@ import (
 	_ "image/png"
 	"math/rand"
 	"os"
+	"time"
 )
 
 type hero struct {
-	hitBox pixel.Rect
-	sprite pixel.Sprite
-	lives  int
+	sprite            pixel.Sprite
+	hitBox            pixel.Rect
+	lives             int
+	lastDirectionMove []int
+}
+
+func buildHero(sprt pixel.Sprite, freeBlockList []pixel.Rect) hero {
+	// build hero
+	n := generateRandNum(len(freeBlockList))
+	placementTileMin := freeBlockList[n].Min
+	placementTileMax := freeBlockList[n].Max
+	// make enemy's hit box location and size
+	heroHitBox := pixel.Rect{placementTileMin, placementTileMax}
+	heroObj := hero{sprt, heroHitBox, 3, []int{0, 0}}
+
+	return heroObj
 }
 
 type darkMage struct {
@@ -29,9 +43,31 @@ type level struct {
 	levelNum     int
 }
 
+// ------------------------------
+
 type playArea struct {
 	levelEnvironment level
 	enemyList        []darkMage
+	freeBlockList    []pixel.Rect
+}
+
+func (pa playArea) drawEnemies(window *pixelgl.Window) {
+	for i := range pa.enemyList {
+		currentEnemy := pa.enemyList[i]
+		currentEnemyHitBox := currentEnemy.hitBox
+		currentEnemyMatrix := pixel.IM
+		// currentEnemyMatrix = currentEnemyMatrix.ScaledXY(currentEnemyHitBox.Center(), pixel.Vec{10,10})
+		currentEnemyMatrix = currentEnemyMatrix.Moved(currentEnemyHitBox.Center())
+		currentEnemy.sprite.Draw(window, currentEnemyMatrix)
+	}
+}
+
+func drawHero(window *pixelgl.Window, heroObj hero) {
+	heroHitBox := heroObj.hitBox
+	heroMatrix := pixel.IM
+	// currentEnemyMatrix = currentEnemyMatrix.ScaledXY(currentEnemyHitBox.Center(), pixel.Vec{10,10})
+	heroMatrix = heroMatrix.Moved(heroHitBox.Center())
+	heroObj.sprite.Draw(window, heroMatrix)
 }
 
 // --------------------------------
@@ -66,7 +102,7 @@ func run() {
 	// wallBatch.Clear()
 	// floorBlock := pixel.NewSprite(floorWallSheet, wallFloorFrames[0])
 	wallBlockSprite := pixel.NewSprite(wallBlockPic, wallBlockPic.Bounds())
-	// heroSprite := pixel.NewSprite(heroPic, heroPic.Bounds())
+	heroSprite := pixel.NewSprite(heroPic, heroPic.Bounds())
 	darkMageSprite := pixel.NewSprite(darkMagePic, darkMagePic.Bounds())
 
 	// level 1 wall setup
@@ -76,7 +112,7 @@ func run() {
 	for !win.Closed() {
 
 		// gameOver := false
-		playArea = makePlayArea(level1Board, *darkMageSprite, windowTileList)
+		playArea := makePlayArea(level1Board, *darkMageSprite, windowTileList)
 
 		for !win.Closed() {
 			win.Clear(colornames.Darkgrey)
@@ -84,10 +120,15 @@ func run() {
 			// set up cases for other levels...
 
 			// draw all pics in level wall batch
-			level1Board.wallBatch.Draw(win)
+			playArea.levelEnvironment.wallBatch.Draw(win)
+			playArea.drawEnemies(win)
+
+			heroPositionChange := checkForKeyboardInput(win)
+
+			playArea.drawHero(win)
 
 			// draw all tile rectangles in imd on window (for debug use)
-			imd.Draw(win)
+			// imd.Draw(win)
 
 			win.Update()
 		}
@@ -180,7 +221,6 @@ func makeLevel1(wallPic pixel.Picture, wallSprite *pixel.Sprite, winTileLst []pi
 		level1.wallTileList = append(level1.wallTileList, winTileLst[i])
 		wallSprite.Draw(wallBatch, pixel.IM.Moved(winTileLst[i].Center()))
 	}
-
 	return level1
 }
 
@@ -196,7 +236,7 @@ func makePlayArea(lvl level, enemySpite pixel.Sprite, winTileList []pixel.Rect) 
 	// build enemy list
 	for i := 0; i < 4+(2*lvl.levelNum); i++ {
 		// random element index for picking out a block to place an enemy
-		n := rand.Int() % len(availableBlockList)
+		n := generateRandNum(len(availableBlockList))
 		// get tile info
 		placementTileMin := availableBlockList[n].Min
 		placementTileMax := availableBlockList[n].Max
@@ -204,10 +244,13 @@ func makePlayArea(lvl level, enemySpite pixel.Sprite, winTileList []pixel.Rect) 
 		enemyHitBox := pixel.Rect{placementTileMin, placementTileMax}
 		darkMageObj := darkMage{enemySpite, enemyHitBox}
 		enemyList = append(enemyList, darkMageObj)
+		// remove the block that is taken up by the newly added enemy
+		availableBlockList = removeAvailableSpotFromList(availableBlockList, n)
 	}
 
 	playArea.levelEnvironment = lvl
 	playArea.enemyList = enemyList
+	playArea.freeBlockList = availableBlockList
 
 	return playArea
 
@@ -221,7 +264,7 @@ func getAvailableTiles(allWinTiles []pixel.Rect, occupiedList []pixel.Rect) []pi
 
 	for i := 0; i < len(allWinTiles); i++ {
 		validSpot = true
-		for j := 0; j < len(occupiedList); i++ {
+		for j := 0; j < len(occupiedList); j++ {
 			if allWinTiles[i].Center() == occupiedList[j].Center() {
 				validSpot = false
 			}
@@ -230,8 +273,67 @@ func getAvailableTiles(allWinTiles []pixel.Rect, occupiedList []pixel.Rect) []pi
 			availableBlocks = append(availableBlocks, allWinTiles[i])
 		}
 	}
-
 	return availableBlocks
+}
+
+// returns a random integer from 0 to max
+func generateRandNum(max int) int {
+	rand.Seed(time.Now().UTC().UnixNano())
+	return rand.Intn(max)
+}
+
+// removes element at index (indx) from list (rectLst) and return new list
+func removeAvailableSpotFromList(rectLst []pixel.Rect, indx int) []pixel.Rect {
+	return append(rectLst[:indx], rectLst[indx+1:]...)
+}
+
+// detects keyboard input and returns an array of ints [dX, dY, directionCode]
+func checkForKeyboardInput(window *pixelgl.Window) []int {
+	deltaX := 0
+	deltaY := 0
+	// directionCode := 0
+	deltaPoint := []int{0, 0}
+
+	if window.Pressed(pixelgl.KeyLeft) {
+		deltaX -= 5
+		// directionCode = 0
+	}
+	if window.Pressed(pixelgl.KeyRight) {
+		deltaX += 5
+		// directionCode = 1
+	}
+	if window.Pressed(pixelgl.KeyUp) {
+		deltaY += 5
+		// directionCode = 2
+	}
+	if window.Pressed(pixelgl.KeyDown) {
+		deltaY -= 5
+		// directionCode = 3
+	}
+	if window.Pressed(pixelgl.KeyDown) && window.Pressed(pixelgl.KeyRight) {
+		deltaY -= 5
+		deltaX += 5
+		// directionCode = 4
+	}
+	if window.Pressed(pixelgl.KeyDown) && window.Pressed(pixelgl.KeyLeft) {
+		deltaY -= 5
+		deltaX -= 5
+		// directionCode = 5
+	}
+	if window.Pressed(pixelgl.KeyUp) && window.Pressed(pixelgl.KeyRight) {
+		deltaY += 5
+		deltaX += 5
+		// directionCode = 6
+	}
+	if window.Pressed(pixelgl.KeyUp) && window.Pressed(pixelgl.KeyLeft) {
+		deltaY += 5
+		deltaX -= 5
+		// directionCode = 7
+	}
+	deltaPoint[0] = deltaX
+	deltaPoint[1] = deltaY
+
+	return deltaPoint
 }
 
 // create board for level 1 - first determine which tiles will be
