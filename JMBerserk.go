@@ -57,10 +57,14 @@ func (heroObj hero) drawHero(window *pixelgl.Window) {
 	imd.Draw(window)
 }
 
+// ----------------------
+
 type darkMage struct {
 	sprite pixel.Sprite
 	hitBox pixel.Rect
 }
+
+// ----------------------
 
 type level struct {
 	wallTileList []pixel.Rect
@@ -90,6 +94,14 @@ func (pa playArea) drawEnemies(window *pixelgl.Window) {
 
 // --------------------------------
 
+type shot struct {
+	sprite *pixel.Sprite
+	hitBox pixel.Rect
+	active bool
+}
+
+// --------------------------------
+
 func main() {
 	pixelgl.Run(run)
 }
@@ -103,7 +115,7 @@ func run() {
 
 	imd := imdraw.New(nil)
 
-	// make imd to and fill with tile rectangles
+	// make imd to and fill with tile rectangles *** DEBUG ***
 	for i := 0; i < len(windowTileList); i++ {
 		imd.Color = colornames.White
 		imd.Push(windowTileList[i].Min, windowTileList[i].Max)
@@ -114,14 +126,18 @@ func run() {
 	wallBlockPic, _ := loadPicture("wall_block.png")
 	heroPic, _ := loadPicture("mage_0.png")
 	darkMagePic, _ := loadPicture("dark_mage.png")
+	shotPic, _ := loadPicture("shot.png")
 
 	// general use wall batch
 	// wallBatch := makeWallBatch(wallBlockPic)
 	// wallBatch.Clear()
 	// floorBlock := pixel.NewSprite(floorWallSheet, wallFloorFrames[0])
+
+	// SPRITES
 	wallBlockSprite := pixel.NewSprite(wallBlockPic, wallBlockPic.Bounds())
 	heroSprite := pixel.NewSprite(heroPic, heroPic.Bounds())
 	darkMageSprite := pixel.NewSprite(darkMagePic, darkMagePic.Bounds())
+	shotSprite := pixel.NewSprite(shotPic, shotPic.Bounds())
 
 	// level 1 wall setup
 	level1Board := makeLevel1(wallBlockPic, wallBlockSprite, windowTileList)
@@ -133,6 +149,10 @@ func run() {
 		playArea := makePlayArea(level1Board, *darkMageSprite, windowTileList)
 		// build hero obj
 		heroStrctObj := buildHero(heroSprite, playArea.freeBlockList)
+		// build hero shot
+		heroShotObj := shot{shotSprite,
+			pixel.Rect{pixel.V(0, 0), pixel.V(5, 5)},
+			false}
 
 		for !win.Closed() {
 			win.Clear(colornames.Darkgrey)
@@ -145,11 +165,20 @@ func run() {
 
 			// get direction of hero move from keyboard input
 			heroPositionChange := checkForKeyboardInput(win)
+
 			// update hero hit box
 			newHeroHitBox := heroStrctObj.updateHitBox(heroPositionChange)
 			heroStrctObj.hitBox = newHeroHitBox
 			// draw hero
 			heroStrctObj.drawHero(win)
+
+			// check for space bar press
+			if win.Pressed(pixelgl.KeySpace) && !heroShotObj.active {
+				newHeroShotHBMin := heroStrctObj.hitBox.Center()
+				newHeroShotHBMax := heroStrctObj.hitBox.Center().Add(pixel.V(5, 5))
+				syncedShotHitBoxPosition := pixel.Rect{newHeroShotHBMin, newHeroShotHBMax}
+				heroShotObj.hitBox = syncedShotHitBoxPosition
+			}
 
 			// draw all tile rectangles in imd on window (for debug use)
 			// imd.Draw(win)
