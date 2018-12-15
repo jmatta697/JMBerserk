@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"github.com/faiface/pixel"
 	"github.com/faiface/pixel/imdraw"
 	"github.com/faiface/pixel/pixelgl"
@@ -12,11 +13,13 @@ import (
 	"time"
 )
 
+// -------------------
+
 type hero struct {
-	sprite            *pixel.Sprite
-	hitBox            pixel.Rect
-	lives             int
-	lastDirectionMove []int
+	sprite      *pixel.Sprite
+	hitBox      pixel.Rect
+	lives       int
+	lastDirCode int
 }
 
 func buildHero(sprt *pixel.Sprite, freeBlockList []pixel.Rect) hero {
@@ -28,11 +31,12 @@ func buildHero(sprt *pixel.Sprite, freeBlockList []pixel.Rect) hero {
 	hitBoxMinScale := pixel.Vec{5, -5}
 	hitBoxMaxScale := pixel.Vec{-5, 3}
 	heroHitBox := pixel.Rect{placementTileMin.Add(hitBoxMinScale), placementTileMax.Add(hitBoxMaxScale)}
-	heroObj := hero{sprt, heroHitBox, 3, []int{0, 0}}
+	heroObj := hero{sprt, heroHitBox, 3}
 
 	return heroObj
 }
 
+// uses current hit box of heroObj to determine new position of hero hit box - returns rect obj
 func (heroObj hero) updateHitBox(moveDirection []float64) pixel.Rect {
 	deltaX := moveDirection[0]
 	deltaY := moveDirection[1]
@@ -41,7 +45,6 @@ func (heroObj hero) updateHitBox(moveDirection []float64) pixel.Rect {
 	currentHitBoxMin := heroObj.hitBox.Min
 	currentHitBoxMax := heroObj.hitBox.Max
 	// set the new hit box position and stats according to the incoming move direction
-
 	return pixel.Rect{currentHitBoxMin.Add(deltaVec), currentHitBoxMax.Add(deltaVec)}
 }
 
@@ -50,6 +53,7 @@ func (heroObj hero) drawHero(window *pixelgl.Window) {
 	// currentEnemyMatrix = currentEnemyMatrix.ScaledXY(currentEnemyHitBox.Center(), pixel.Vec{10,10})
 	heroObj.sprite.Draw(window, heroMatrix)
 
+	// code below is to view hit box overlay (DEBUG)
 	imd := imdraw.New(nil)
 	imd.Color = colornames.White
 	imd.Push(heroObj.hitBox.Min, heroObj.hitBox.Max)
@@ -95,9 +99,66 @@ func (pa playArea) drawEnemies(window *pixelgl.Window) {
 // --------------------------------
 
 type shot struct {
-	sprite *pixel.Sprite
-	hitBox pixel.Rect
-	active bool
+	sprite    *pixel.Sprite
+	hitBox    pixel.Rect
+	deltaMove []int
+	active    bool
+}
+
+// determine move direction
+func getShotMoveDirection(directionCode float64) []int {
+	fmt.Println(directionCode)
+	deltaPoint := []int{0, 0}
+	deltaX := 0
+	deltaY := 0
+	switch directionCode {
+	case float64(0):
+		deltaX = 5
+	case float64(1):
+		deltaX = -5
+	case float64(2):
+		deltaY = 5
+	case float64(3):
+		deltaY = -5
+	case float64(4):
+		deltaX = 5
+		deltaY = -5
+	case float64(5):
+		deltaX = -5
+		deltaY = -5
+	case float64(6):
+		deltaX = 5
+		deltaY = 5
+	case float64(7):
+		deltaX = -5
+		deltaY = 5
+	}
+	deltaPoint[0] = deltaX
+	deltaPoint[1] = deltaY
+	return deltaPoint
+}
+
+// uses current hit box of shotObj to determine new position of shot hit box - returns rect obj
+func (shotObj shot) updateHitBox() pixel.Rect {
+	deltaVec := pixel.Vec{float64(shotObj.deltaMove[0]), float64(shotObj.deltaMove[1])}
+	// gets the current hit box position and stats
+	currentHitBoxMin := shotObj.hitBox.Min
+	currentHitBoxMax := shotObj.hitBox.Max
+	// set the new hit box position and stats according to the incoming move direction
+	return pixel.Rect{currentHitBoxMin.Add(deltaVec), currentHitBoxMax.Add(deltaVec)}
+}
+
+func (shotObj shot) drawShot(window *pixelgl.Window) {
+	shotMatrix := pixel.IM.Moved(shotObj.hitBox.Center())
+	// currentEnemyMatrix = currentEnemyMatrix.ScaledXY(currentEnemyHitBox.Center(), pixel.Vec{10,10})
+	shotObj.sprite.Draw(window, shotMatrix)
+
+	// code below is to view hit box overlay (DEBUG)
+	imd := imdraw.New(nil)
+	imd.Color = colornames.White
+	imd.Push(shotObj.hitBox.Min, shotObj.hitBox.Max)
+	imd.Rectangle(1)
+	imd.Draw(window)
 }
 
 // --------------------------------
@@ -151,7 +212,7 @@ func run() {
 		heroStrctObj := buildHero(heroSprite, playArea.freeBlockList)
 		// build hero shot
 		heroShotObj := shot{shotSprite,
-			pixel.Rect{pixel.V(0, 0), pixel.V(5, 5)},
+			pixel.Rect{pixel.V(0, 0), pixel.V(5, 5)}, []int{5, 0},
 			false}
 
 		for !win.Closed() {
@@ -165,6 +226,7 @@ func run() {
 
 			// get direction of hero move from keyboard input
 			heroPositionChange := checkForKeyboardInput(win)
+			// fmt.Println(heroPositionChange)
 
 			// update hero hit box
 			newHeroHitBox := heroStrctObj.updateHitBox(heroPositionChange)
@@ -172,13 +234,24 @@ func run() {
 			// draw hero
 			heroStrctObj.drawHero(win)
 
-			// check for space bar press
+			// check for space bar press and build shot at hero location
 			if win.Pressed(pixelgl.KeySpace) && !heroShotObj.active {
 				newHeroShotHBMin := heroStrctObj.hitBox.Center()
 				newHeroShotHBMax := heroStrctObj.hitBox.Center().Add(pixel.V(5, 5))
 				syncedShotHitBoxPosition := pixel.Rect{newHeroShotHBMin, newHeroShotHBMax}
 				heroShotObj.hitBox = syncedShotHitBoxPosition
+
+				shotMoveDirection := getShotMoveDirection(heroPositionChange[2])
+				fmt.Println(shotMoveDirection)
+
+				heroShotObj.deltaMove = shotMoveDirection
+				fmt.Println(heroShotObj.deltaMove)
+
+				heroShotObj.active = true
 			}
+
+			heroShotObj.updateHitBox()
+			heroShotObj.drawShot(win)
 
 			// draw all tile rectangles in imd on window (for debug use)
 			// imd.Draw(win)
@@ -346,47 +419,48 @@ func checkForKeyboardInput(window *pixelgl.Window) []float64 {
 	deltaX := 0.0
 	deltaY := 0.0
 
-	// directionCode := 0
-	deltaPoint := []float64{0.0, 0.0}
+	directionCode := 0.0
+	deltaPoint := []float64{0.0, 0.0, 0.0}
 
 	if window.Pressed(pixelgl.KeyLeft) {
 		deltaX -= deltaFactor * 2
-		// directionCode = 0
+		directionCode = 0.0
 	}
 	if window.Pressed(pixelgl.KeyRight) {
 		deltaX += deltaFactor * 2
-		// directionCode = 1
+		directionCode = 1.0
 	}
 	if window.Pressed(pixelgl.KeyUp) {
 		deltaY += deltaFactor * 2
-		// directionCode = 2
+		directionCode = 2.0
 	}
 	if window.Pressed(pixelgl.KeyDown) {
 		deltaY -= deltaFactor * 2
-		// directionCode = 3
+		directionCode = 3.0
 	}
 	if window.Pressed(pixelgl.KeyDown) && window.Pressed(pixelgl.KeyRight) {
 		deltaY -= deltaFactor
 		deltaX += deltaFactor
-		// directionCode = 4
+		directionCode = 4.0
 	}
 	if window.Pressed(pixelgl.KeyDown) && window.Pressed(pixelgl.KeyLeft) {
 		deltaY -= deltaFactor
 		deltaX -= deltaFactor
-		// directionCode = 5
+		directionCode = 5.0
 	}
 	if window.Pressed(pixelgl.KeyUp) && window.Pressed(pixelgl.KeyRight) {
 		deltaY += deltaFactor
 		deltaX += deltaFactor
-		// directionCode = 6
+		directionCode = 6.0
 	}
 	if window.Pressed(pixelgl.KeyUp) && window.Pressed(pixelgl.KeyLeft) {
 		deltaY += deltaFactor
 		deltaX -= deltaFactor
-		// directionCode = 7
+		directionCode = 7.0
 	}
 	deltaPoint[0] = deltaX
 	deltaPoint[1] = deltaY
+	deltaPoint[2] = directionCode
 
 	return deltaPoint
 }
