@@ -5,7 +5,9 @@ import (
 	"github.com/faiface/pixel"
 	"github.com/faiface/pixel/imdraw"
 	"github.com/faiface/pixel/pixelgl"
+	"github.com/faiface/pixel/text"
 	"golang.org/x/image/colornames"
+	"golang.org/x/image/font/basicfont"
 	"image"
 	_ "image/png"
 	"math/rand"
@@ -22,7 +24,7 @@ type hero struct {
 	lastDirCode float64
 }
 
-func buildHero(sprt *pixel.Sprite, freeBlockList []pixel.Rect) *hero {
+func buildHero(sprt *pixel.Sprite, freeBlockList []pixel.Rect, livesRemaining int) *hero {
 	// build hero
 	n := generateRandNum(len(freeBlockList))
 	placementTileMin := freeBlockList[n].Min
@@ -31,7 +33,7 @@ func buildHero(sprt *pixel.Sprite, freeBlockList []pixel.Rect) *hero {
 	hitBoxMinScale := pixel.Vec{5, -5}
 	hitBoxMaxScale := pixel.Vec{-5, 3}
 	heroHitBox := pixel.Rect{placementTileMin.Add(hitBoxMinScale), placementTileMax.Add(hitBoxMaxScale)}
-	heroObj := &hero{sprt, heroHitBox, 3, 0}
+	heroObj := &hero{sprt, heroHitBox, livesRemaining, 0}
 
 	return heroObj
 }
@@ -66,6 +68,17 @@ func (heroObj hero) drawHero(window *pixelgl.Window) {
 type darkMage struct {
 	sprite pixel.Sprite
 	hitBox pixel.Rect
+}
+
+func (enemyObj darkMage) updateEnemyHitBox(moveDirection []float64) pixel.Rect {
+	deltaX := moveDirection[0]
+	deltaY := moveDirection[1]
+	deltaVec := pixel.Vec{float64(deltaX), float64(deltaY)}
+	// gets the current hit box position and stats
+	currentHitBoxMin := enemyObj.hitBox.Min
+	currentHitBoxMax := enemyObj.hitBox.Max
+	// set the new hit box position and stats according to the incoming move direction
+	return pixel.Rect{currentHitBoxMin.Add(deltaVec), currentHitBoxMax.Add(deltaVec)}
 }
 
 // ----------------------
@@ -209,13 +222,15 @@ func run() {
 	darkMageSprite := pixel.NewSprite(darkMagePic, darkMagePic.Bounds())
 	shotSprite := pixel.NewSprite(shotPic, shotPic.Bounds())
 
+	gameOver := false
 	// level 1 wall setup
 	level1Board := makeLevel1(wallBlockPic, wallBlockSprite, windowTileList)
-
+	// store remaining lives
+	heroLivesRemaining := 3
 	// initialize various objects
 	playArea := makePlayArea(level1Board, *darkMageSprite, windowTileList)
 	// build hero obj
-	hero := buildHero(heroSprite, playArea.freeBlockList)
+	hero := buildHero(heroSprite, playArea.freeBlockList, heroLivesRemaining)
 	// build hero shot
 	heroShot := buildShot(shotSprite,
 		pixel.Rect{pixel.V(0, 0), pixel.V(5, 5)}, []float64{0.25, 0},
@@ -230,7 +245,6 @@ func run() {
 			// Random enemy fires shot if below level-specific threshold
 			if len(playArea.enemyList) != 0 && enemyShot.active == false {
 				randShotChance := rand.Intn(100)
-				fmt.Println(randShotChance)
 				if randShotChance < (20 * playArea.levelEnvironment.levelNum) {
 					// pick random dark mage from list
 					randDarkMageIndex := rand.Intn(len(playArea.enemyList))
@@ -246,12 +260,41 @@ func run() {
 		}
 	}()
 
+	// update all enemy hit box positions based on location of hero
+	enemyMoveTicker := time.NewTicker(time.Millisecond * 50)
+	// var indexRemovalList []int
+	go func() {
+		for range enemyMoveTicker.C {
+
+			if len(playArea.enemyList) != 0 {
+				randDarkMageIndex := generateRandNum(len(playArea.enemyList))
+				enemyMoveVecDimension := determineEnemyShotDeltaMove(hero, playArea.enemyList[randDarkMageIndex].hitBox.Center())
+				addVec := pixel.Vec{enemyMoveVecDimension[0], enemyMoveVecDimension[1]}
+				currentEnemyHitBoxMin := playArea.enemyList[randDarkMageIndex].hitBox.Min
+				currentEnemyHitBoxMax := playArea.enemyList[randDarkMageIndex].hitBox.Max
+				newEnemyHitBoxMin := currentEnemyHitBoxMin.Add(addVec)
+				newEnemyHitBoxMax := currentEnemyHitBoxMax.Add(addVec)
+				playArea.enemyList[randDarkMageIndex].hitBox = pixel.Rect{newEnemyHitBoxMin, newEnemyHitBoxMax}
+
+				// check collisions with walls and
+				for i := len(playArea.enemyList) - 1; i >= 0; i-- {
+					for j := range playArea.levelEnvironment.wallTileList {
+						if len(playArea.enemyList) != 0 &&
+							playArea.enemyList[i].hitBox.Intersect(playArea.levelEnvironment.wallTileList[j]) !=
+								pixel.R(0, 0, 0, 0) {
+							playArea.enemyList = removeEnemyFromEnemyList(playArea.enemyList, i)
+							break
+						}
+					}
+				}
+			}
+		}
+	}()
+
 	// main game loop
 	for !win.Closed() {
 
-		// gameOver := false
-
-		for !win.Closed() {
+		for !win.Closed() && !gameOver {
 			win.Clear(colornames.Darkgrey)
 
 			// set up cases for other levels...
@@ -275,19 +318,6 @@ func run() {
 			newHeroHitBox := hero.updateHitBox(heroPositionChange)
 			hero.hitBox = newHeroHitBox
 
-			// check for hero collision with wall
-			// check for shot collision with wallHB
-			for i := 0; i < len(playArea.levelEnvironment.wallTileList); i++ {
-				if hero.hitBox.Intersect(playArea.levelEnvironment.wallTileList[i]) !=
-					pixel.R(0, 0, 0, 0) {
-					hero.lives -= 1
-					hero = buildHero(heroSprite, playArea.freeBlockList)
-				}
-				if hero.hitBox.Center().Y > win.Bounds().Max.Y {
-					hero.hitBox = pixel.Rect{hero.hitBox.Min.Add(pixel.Vec{0, -0.75}),
-						hero.hitBox.Max.Add(pixel.Vec{0, -0.75})}
-				}
-			}
 			// draw hero
 			hero.drawHero(win)
 
@@ -325,9 +355,15 @@ func run() {
 				enemyShot.drawShot(win)
 			}
 
-			// ------------------ collision checking ---------------------------------------
+			// ------------------ collision detection ---------------------------------------
 
-			// check for shot collision with wallHB
+			// check for hero collision with board bounds
+			if hero.hitBox.Center().Y > win.Bounds().Max.Y {
+				hero.hitBox = pixel.Rect{hero.hitBox.Min.Add(pixel.Vec{0, -0.75}),
+					hero.hitBox.Max.Add(pixel.Vec{0, -0.75})}
+			}
+
+			// check for hero and enemy shot collision with wallHB
 			for i := 0; i < len(playArea.levelEnvironment.wallTileList); i++ {
 				if heroShot.hitBox.Intersect(playArea.levelEnvironment.wallTileList[i]) !=
 					pixel.R(0, 0, 0, 0) {
@@ -345,7 +381,7 @@ func run() {
 				}
 			}
 
-			// check for shot collision with dark mages
+			// check for hero shot collision with dark mages
 			for i := 0; i < len(playArea.enemyList); i++ {
 				if heroShot.hitBox.Intersect(playArea.enemyList[i].hitBox) !=
 					pixel.R(0, 0, 0, 0) {
@@ -354,11 +390,44 @@ func run() {
 				}
 			}
 
+			// check for hero collision with wall
+			for i := 0; i < len(playArea.levelEnvironment.wallTileList); i++ {
+				if hero.hitBox.Intersect(playArea.levelEnvironment.wallTileList[i]) !=
+					pixel.R(0, 0, 0, 0) {
+					heroLivesRemaining -= 1
+					hero = buildHero(heroSprite, playArea.freeBlockList, heroLivesRemaining)
+				}
+			}
+
+			// check for enemy shot with hero
+			if enemyShot.hitBox.Intersect(hero.hitBox) !=
+				pixel.R(0, 0, 0, 0) {
+				heroLivesRemaining -= 1
+				hero = buildHero(heroSprite, playArea.freeBlockList, heroLivesRemaining)
+				enemyShot.active = false
+			}
+
+			if heroLivesRemaining == 0 {
+				gameOver = true
+
+			}
+
 			// draw all tile rectangles in imd on window (for debug use)
 			// imd.Draw(win)
 
 			win.Update()
 		}
+
+		// game over screen
+		basicAtlas := text.NewAtlas(basicfont.Face7x13, text.ASCII)
+		basicTxt := text.New(win.Bounds().Center().Add(pixel.Vec{-120, 0}), basicAtlas)
+
+		fmt.Fprintln(basicTxt, "GAME OVER")
+
+		win.Clear(colornames.Black)
+
+		basicTxt.Draw(win, pixel.IM.Scaled(basicTxt.Orig, 4))
+		win.Update()
 
 	}
 }
