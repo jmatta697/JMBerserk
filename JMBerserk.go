@@ -19,10 +19,10 @@ type hero struct {
 	sprite      *pixel.Sprite
 	hitBox      pixel.Rect
 	lives       int
-	lastDirCode int
+	lastDirCode float64
 }
 
-func buildHero(sprt *pixel.Sprite, freeBlockList []pixel.Rect) hero {
+func buildHero(sprt *pixel.Sprite, freeBlockList []pixel.Rect) *hero {
 	// build hero
 	n := generateRandNum(len(freeBlockList))
 	placementTileMin := freeBlockList[n].Min
@@ -31,7 +31,7 @@ func buildHero(sprt *pixel.Sprite, freeBlockList []pixel.Rect) hero {
 	hitBoxMinScale := pixel.Vec{5, -5}
 	hitBoxMaxScale := pixel.Vec{-5, 3}
 	heroHitBox := pixel.Rect{placementTileMin.Add(hitBoxMinScale), placementTileMax.Add(hitBoxMaxScale)}
-	heroObj := hero{sprt, heroHitBox, 3}
+	heroObj := &hero{sprt, heroHitBox, 3, 0}
 
 	return heroObj
 }
@@ -101,37 +101,43 @@ func (pa playArea) drawEnemies(window *pixelgl.Window) {
 type shot struct {
 	sprite    *pixel.Sprite
 	hitBox    pixel.Rect
-	deltaMove []int
+	deltaMove []float64
 	active    bool
 }
 
+func buildShot(sprt *pixel.Sprite, hitBox pixel.Rect, deltaMove []float64, active bool) *shot {
+	// build hero
+	shotObj := &shot{sprt, hitBox, deltaMove, active}
+	return shotObj
+}
+
 // determine move direction
-func getShotMoveDirection(directionCode float64) []int {
+func getShotMoveDirection(directionCode float64) []float64 {
 	fmt.Println(directionCode)
-	deltaPoint := []int{0, 0}
-	deltaX := 0
-	deltaY := 0
+	deltaPoint := []float64{0, 0}
+	deltaX := 0.0
+	deltaY := 0.0
 	switch directionCode {
 	case float64(0):
-		deltaX = 5
+		deltaX = -0.75
 	case float64(1):
-		deltaX = -5
+		deltaX = 0.75
 	case float64(2):
-		deltaY = 5
+		deltaY = 0.75
 	case float64(3):
-		deltaY = -5
+		deltaY = -0.75
 	case float64(4):
-		deltaX = 5
-		deltaY = -5
+		deltaX = 0.75
+		deltaY = -0.75
 	case float64(5):
-		deltaX = -5
-		deltaY = -5
+		deltaX = -0.75
+		deltaY = -0.75
 	case float64(6):
-		deltaX = 5
-		deltaY = 5
+		deltaX = 0.75
+		deltaY = 0.75
 	case float64(7):
-		deltaX = -5
-		deltaY = 5
+		deltaX = -0.75
+		deltaY = 0.75
 	}
 	deltaPoint[0] = deltaX
 	deltaPoint[1] = deltaY
@@ -139,11 +145,14 @@ func getShotMoveDirection(directionCode float64) []int {
 }
 
 // uses current hit box of shotObj to determine new position of shot hit box - returns rect obj
-func (shotObj shot) updateHitBox() pixel.Rect {
-	deltaVec := pixel.Vec{float64(shotObj.deltaMove[0]), float64(shotObj.deltaMove[1])}
+func (shotObj shot) updateShotHitBox(deltaPoint []float64) pixel.Rect {
+	deltaVec := pixel.Vec{float64(deltaPoint[0]), float64(deltaPoint[1])}
 	// gets the current hit box position and stats
 	currentHitBoxMin := shotObj.hitBox.Min
 	currentHitBoxMax := shotObj.hitBox.Max
+	// fmt.Println(currentHitBoxMin)
+	// fmt.Println(currentHitBoxMax)
+	// fmt.Println(pixel.Rect{currentHitBoxMin.Add(deltaVec), currentHitBoxMax.Add(deltaVec)})
 	// set the new hit box position and stats according to the incoming move direction
 	return pixel.Rect{currentHitBoxMin.Add(deltaVec), currentHitBoxMax.Add(deltaVec)}
 }
@@ -203,17 +212,44 @@ func run() {
 	// level 1 wall setup
 	level1Board := makeLevel1(wallBlockPic, wallBlockSprite, windowTileList)
 
+	// initialize various objects
+	playArea := makePlayArea(level1Board, *darkMageSprite, windowTileList)
+	// build hero obj
+	hero := buildHero(heroSprite, playArea.freeBlockList)
+	// build hero shot
+	heroShot := buildShot(shotSprite,
+		pixel.Rect{pixel.V(0, 0), pixel.V(5, 5)}, []float64{0.25, 0},
+		false)
+	enemyShot := buildShot(shotSprite,
+		pixel.Rect{pixel.V(0, 0), pixel.V(5, 5)}, []float64{0, 0},
+		false)
+
+	secondTicker := time.NewTicker(time.Second)
+	go func() {
+		for range secondTicker.C {
+			// Random enemy fires shot if below level-specific threshold
+			if len(playArea.enemyList) != 0 && enemyShot.active == false {
+				randShotChance := rand.Intn(100)
+				fmt.Println(randShotChance)
+				if randShotChance < (20 * playArea.levelEnvironment.levelNum) {
+					// pick random dark mage from list
+					randDarkMageIndex := rand.Intn(len(playArea.enemyList))
+					newEnemyShotLocationMin := playArea.enemyList[randDarkMageIndex].hitBox.Center()
+					newEnemyShotLocationMax := playArea.enemyList[randDarkMageIndex].hitBox.Center().Add(pixel.V(5, 5))
+					syncedEnemyShotHitBoxPosition := pixel.Rect{newEnemyShotLocationMin, newEnemyShotLocationMax}
+					enemyShot.hitBox = syncedEnemyShotHitBoxPosition
+					enemyShotDirectionVec := determineEnemyShotDeltaMove(hero, enemyShot.hitBox.Center())
+					enemyShot.deltaMove = []float64{enemyShotDirectionVec[0], enemyShotDirectionVec[1]}
+					enemyShot.active = true
+				}
+			}
+		}
+	}()
+
 	// main game loop
 	for !win.Closed() {
 
 		// gameOver := false
-		playArea := makePlayArea(level1Board, *darkMageSprite, windowTileList)
-		// build hero obj
-		heroStrctObj := buildHero(heroSprite, playArea.freeBlockList)
-		// build hero shot
-		heroShotObj := shot{shotSprite,
-			pixel.Rect{pixel.V(0, 0), pixel.V(5, 5)}, []int{5, 0},
-			false}
 
 		for !win.Closed() {
 			win.Clear(colornames.Darkgrey)
@@ -228,30 +264,95 @@ func run() {
 			heroPositionChange := checkForKeyboardInput(win)
 			// fmt.Println(heroPositionChange)
 
+			// detect a change in hero direction and set hero last position
+			if heroPositionChange[0] != 0 || heroPositionChange[1] != 0 {
+				// assign new last hero direction
+				hero.lastDirCode = heroPositionChange[2]
+			}
+			// fmt.Printf("%v\n", heroPositionChange)
+			// fmt.Println(hero.lastDirCode)
 			// update hero hit box
-			newHeroHitBox := heroStrctObj.updateHitBox(heroPositionChange)
-			heroStrctObj.hitBox = newHeroHitBox
+			newHeroHitBox := hero.updateHitBox(heroPositionChange)
+			hero.hitBox = newHeroHitBox
+
+			// check for hero collision with wall
+			// check for shot collision with wallHB
+			for i := 0; i < len(playArea.levelEnvironment.wallTileList); i++ {
+				if hero.hitBox.Intersect(playArea.levelEnvironment.wallTileList[i]) !=
+					pixel.R(0, 0, 0, 0) {
+					hero.lives -= 1
+					hero = buildHero(heroSprite, playArea.freeBlockList)
+				}
+				if hero.hitBox.Center().Y > win.Bounds().Max.Y {
+					hero.hitBox = pixel.Rect{hero.hitBox.Min.Add(pixel.Vec{0, -0.75}),
+						hero.hitBox.Max.Add(pixel.Vec{0, -0.75})}
+				}
+			}
 			// draw hero
-			heroStrctObj.drawHero(win)
+			hero.drawHero(win)
 
 			// check for space bar press and build shot at hero location
-			if win.Pressed(pixelgl.KeySpace) && !heroShotObj.active {
-				newHeroShotHBMin := heroStrctObj.hitBox.Center()
-				newHeroShotHBMax := heroStrctObj.hitBox.Center().Add(pixel.V(5, 5))
+			if heroShot.active == false && win.Pressed(pixelgl.KeySpace) {
+				// set initial location of shot hit box at hero
+				newHeroShotHBMin := hero.hitBox.Center()
+				newHeroShotHBMax := hero.hitBox.Center().Add(pixel.V(5, 5))
 				syncedShotHitBoxPosition := pixel.Rect{newHeroShotHBMin, newHeroShotHBMax}
-				heroShotObj.hitBox = syncedShotHitBoxPosition
+				heroShot.hitBox = syncedShotHitBoxPosition
 
-				shotMoveDirection := getShotMoveDirection(heroPositionChange[2])
+				shotMoveDirection := getShotMoveDirection(hero.lastDirCode)
 				fmt.Println(shotMoveDirection)
 
-				heroShotObj.deltaMove = shotMoveDirection
-				fmt.Println(heroShotObj.deltaMove)
+				heroShot.deltaMove = shotMoveDirection
+				fmt.Println(heroShot.deltaMove)
 
-				heroShotObj.active = true
+				heroShot.active = true
 			}
 
-			heroShotObj.updateHitBox()
-			heroShotObj.drawShot(win)
+			// keep redrawing shot is still active
+			if heroShot.active == true {
+				deltaDirection := heroShot.deltaMove
+				// fmt.Println(deltaDirection)
+				newShotHitBox := heroShot.updateShotHitBox(deltaDirection)
+				heroShot.hitBox = newShotHitBox
+				heroShot.drawShot(win)
+			}
+			// keep redrawing enemyShot is still active
+			if enemyShot.active == true {
+				deltaDirection := enemyShot.deltaMove
+				// fmt.Println(deltaDirection)
+				newShotHitBox := enemyShot.updateShotHitBox(deltaDirection)
+				enemyShot.hitBox = newShotHitBox
+				enemyShot.drawShot(win)
+			}
+
+			// ------------------ collision checking ---------------------------------------
+
+			// check for shot collision with wallHB
+			for i := 0; i < len(playArea.levelEnvironment.wallTileList); i++ {
+				if heroShot.hitBox.Intersect(playArea.levelEnvironment.wallTileList[i]) !=
+					pixel.R(0, 0, 0, 0) {
+					heroShot.active = false
+				}
+				if heroShot.hitBox.Center().Y > win.Bounds().Max.Y {
+					heroShot.active = false
+				}
+				if enemyShot.hitBox.Intersect(playArea.levelEnvironment.wallTileList[i]) !=
+					pixel.R(0, 0, 0, 0) {
+					enemyShot.active = false
+				}
+				if enemyShot.hitBox.Center().Y > win.Bounds().Max.Y {
+					enemyShot.active = false
+				}
+			}
+
+			// check for shot collision with dark mages
+			for i := 0; i < len(playArea.enemyList); i++ {
+				if heroShot.hitBox.Intersect(playArea.enemyList[i].hitBox) !=
+					pixel.R(0, 0, 0, 0) {
+					playArea.enemyList = removeEnemyFromEnemyList(playArea.enemyList, i)
+					heroShot.active = false
+				}
+			}
 
 			// draw all tile rectangles in imd on window (for debug use)
 			// imd.Draw(win)
@@ -413,9 +514,13 @@ func removeAvailableSpotFromList(rectLst []pixel.Rect, indx int) []pixel.Rect {
 	return append(rectLst[:indx], rectLst[indx+1:]...)
 }
 
+func removeEnemyFromEnemyList(enemyList []darkMage, indx int) []darkMage {
+	return append(enemyList[:indx], enemyList[indx+1:]...)
+}
+
 // detects keyboard input and returns an array of ints [dX, dY, directionCode]
 func checkForKeyboardInput(window *pixelgl.Window) []float64 {
-	deltaFactor := 0.25
+	deltaFactor := 0.3
 	deltaX := 0.0
 	deltaY := 0.0
 
@@ -423,39 +528,39 @@ func checkForKeyboardInput(window *pixelgl.Window) []float64 {
 	deltaPoint := []float64{0.0, 0.0, 0.0}
 
 	if window.Pressed(pixelgl.KeyLeft) {
-		deltaX -= deltaFactor * 2
+		deltaX -= deltaFactor
 		directionCode = 0.0
 	}
 	if window.Pressed(pixelgl.KeyRight) {
-		deltaX += deltaFactor * 2
+		deltaX += deltaFactor
 		directionCode = 1.0
 	}
 	if window.Pressed(pixelgl.KeyUp) {
-		deltaY += deltaFactor * 2
+		deltaY += deltaFactor
 		directionCode = 2.0
 	}
 	if window.Pressed(pixelgl.KeyDown) {
-		deltaY -= deltaFactor * 2
+		deltaY -= deltaFactor
 		directionCode = 3.0
 	}
 	if window.Pressed(pixelgl.KeyDown) && window.Pressed(pixelgl.KeyRight) {
-		deltaY -= deltaFactor
-		deltaX += deltaFactor
+		deltaY -= deltaFactor / 100
+		deltaX += deltaFactor / 100
 		directionCode = 4.0
 	}
 	if window.Pressed(pixelgl.KeyDown) && window.Pressed(pixelgl.KeyLeft) {
-		deltaY -= deltaFactor
-		deltaX -= deltaFactor
+		deltaY -= deltaFactor / 100
+		deltaX -= deltaFactor / 100
 		directionCode = 5.0
 	}
 	if window.Pressed(pixelgl.KeyUp) && window.Pressed(pixelgl.KeyRight) {
-		deltaY += deltaFactor
-		deltaX += deltaFactor
+		deltaY += deltaFactor / 100
+		deltaX += deltaFactor / 100
 		directionCode = 6.0
 	}
 	if window.Pressed(pixelgl.KeyUp) && window.Pressed(pixelgl.KeyLeft) {
-		deltaY += deltaFactor
-		deltaX -= deltaFactor
+		deltaY += deltaFactor / 100
+		deltaX -= deltaFactor / 100
 		directionCode = 7.0
 	}
 	deltaPoint[0] = deltaX
@@ -463,6 +568,14 @@ func checkForKeyboardInput(window *pixelgl.Window) []float64 {
 	deltaPoint[2] = directionCode
 
 	return deltaPoint
+}
+
+func determineEnemyShotDeltaMove(heroObj *hero, initialEnemyShotLocation pixel.Vec) []float64 {
+	// hero center vector
+	heroCenterVec := heroObj.hitBox.Center()
+	differenceVec := heroCenterVec.Sub(initialEnemyShotLocation)
+	unitVec := differenceVec.Unit()
+	return []float64{unitVec.X, unitVec.Y}
 }
 
 // create board for level 1 - first determine which tiles will be

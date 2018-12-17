@@ -40,3 +40,9 @@ func TestGetAvailableTiles(t *testing.T) {
 	}
 
 }
+
+func TestGetShotMoveDirection(t *testing.T) {
+	if getShotMoveDirection(0)[0] != 0.25 || getShotMoveDirection(0)[1] != 0 {
+		t.Error("Test failed: expected rect list does not match actual")
+	}
+}
