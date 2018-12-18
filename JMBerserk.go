@@ -2,12 +2,14 @@ package main
 
 import (
 	"fmt"
+	"strconv"
+
 	// "github.com/faiface/beep"
 	// "github.com/faiface/beep/mp3"
 	// "github.com/faiface/beep/speaker"
 	// "github.com/faiface/beep/wav"
 	"github.com/faiface/pixel"
-	"github.com/faiface/pixel/imdraw"
+	// "github.com/faiface/pixel/imdraw"
 	"github.com/faiface/pixel/pixelgl"
 	"github.com/faiface/pixel/text"
 	"golang.org/x/image/colornames"
@@ -60,11 +62,11 @@ func (heroObj hero) drawHero(window *pixelgl.Window) {
 	heroObj.sprite.Draw(window, heroMatrix)
 
 	// code below is to view hit box overlay (DEBUG)
-	imd := imdraw.New(nil)
-	imd.Color = colornames.White
-	imd.Push(heroObj.hitBox.Min, heroObj.hitBox.Max)
-	imd.Rectangle(1)
-	imd.Draw(window)
+	//imd := imdraw.New(nil)
+	//imd.Color = colornames.White
+	//imd.Push(heroObj.hitBox.Min, heroObj.hitBox.Max)
+	//imd.Rectangle(1)
+	//imd.Draw(window)
 }
 
 // ----------------------
@@ -213,6 +215,7 @@ func run() {
 	heroPic, _ := loadPicture("mage_0.png")
 	darkMagePic, _ := loadPicture("dark_mage.png")
 	shotPic, _ := loadPicture("shot.png")
+	hurt_magePic, _ := loadPicture("hurt_mage_0.png")
 
 	// general use wall batch
 	// wallBatch := makeWallBatch(wallBlockPic)
@@ -224,7 +227,7 @@ func run() {
 	heroSprite := pixel.NewSprite(heroPic, heroPic.Bounds())
 	darkMageSprite := pixel.NewSprite(darkMagePic, darkMagePic.Bounds())
 	shotSprite := pixel.NewSprite(shotPic, shotPic.Bounds())
-
+	hurt_mageSprite := pixel.NewSprite(hurt_magePic, hurt_magePic.Bounds())
 	// level 1 wall setup
 	level1Board := makeLevel1(wallBlockPic, wallBlockSprite, windowTileList)
 	level2Board := makeLevel2(wallBlockPic, wallBlockSprite, windowTileList)
@@ -274,18 +277,29 @@ func run() {
 
 	beatLevel := false
 	gameOver := false
-	// main game loop
+	gameWin := false
+	// OUTSIDE GAME LOOP //
 	for !win.Closed() {
 
-		playArea := makePlayArea(levelList[levelEnvironmentPtr], *darkMageSprite, windowTileList)
-		// build hero obj
-		hero := buildHero(heroSprite, playArea.freeBlockList, heroLivesRemaining)
+		score := 0
 
-		for !win.Closed() && !gameOver {
+		scoreLabelAtlas := text.NewAtlas(basicfont.Face7x13, text.ASCII)
+		scoreLabelTxt := text.New(win.Bounds().Center().Add(pixel.Vec{210, 298}), scoreLabelAtlas)
+		fmt.Fprintln(scoreLabelTxt, "SCORE:")
+
+		scoreAtlas := text.NewAtlas(basicfont.Face7x13, text.ASCII)
+		scoreTxt := text.New(win.Bounds().Center().Add(pixel.Vec{310, 298}), scoreAtlas)
+
+		levelLabelAtlas := text.NewAtlas(basicfont.Face7x13, text.ASCII)
+		levelLabelTxt := text.New(win.Bounds().Center().Add(pixel.Vec{-350, 298}), levelLabelAtlas)
+
+		// GAME LOOP //
+		for !win.Closed() && !gameOver && levelEnvironmentPtr < 4 {
 
 			beatLevel = false
-			playArea = makePlayArea(levelList[levelEnvironmentPtr], *darkMageSprite, windowTileList)
-			hero = buildHero(heroSprite, playArea.freeBlockList, heroLivesRemaining)
+			playArea := makePlayArea(levelList[levelEnvironmentPtr], *darkMageSprite, windowTileList)
+
+			hero := buildHero(heroSprite, playArea.freeBlockList, heroLivesRemaining)
 
 			go func() {
 				for range secondTicker.C {
@@ -307,6 +321,7 @@ func run() {
 				}
 			}()
 
+			// controls enemies' random movements check for collisions with walls
 			go func() {
 				for range enemyMoveTicker.C {
 
@@ -326,6 +341,7 @@ func run() {
 								if len(playArea.enemyList) != 0 &&
 									playArea.enemyList[i].hitBox.Intersect(playArea.levelEnvironment.wallTileList[j]) !=
 										pixel.R(0, 0, 0, 0) {
+									score += 20
 									playArea.enemyList = removeEnemyFromEnemyList(playArea.enemyList, i)
 									break
 								}
@@ -335,14 +351,23 @@ func run() {
 				}
 			}()
 
+			// MAIN SCREEN REFRESH WITHIN LEVEL //
 			for !win.Closed() && !gameOver && !beatLevel {
 
 				win.Clear(colornames.Darkgrey)
+				levelLabelTxt.Clear()
+				scoreTxt.Clear()
+
+				fmt.Fprintln(scoreTxt, strconv.Itoa(score))
+				fmt.Fprintln(levelLabelTxt, playArea.levelEnvironment.levelDescrpt)
 
 				// set up cases for other levels...
 
 				// draw all pics in level wall batch
 				playArea.levelEnvironment.wallBatch.Draw(win)
+				scoreLabelTxt.Draw(win, pixel.IM.Scaled(scoreLabelTxt.Orig, 2))
+				levelLabelTxt.Draw(win, pixel.IM.Scaled(levelLabelTxt.Orig, 2))
+				scoreTxt.Draw(win, pixel.IM.Scaled(scoreTxt.Orig, 2))
 				playArea.drawEnemies(win)
 
 				// get direction of hero move from keyboard input
@@ -421,6 +446,7 @@ func run() {
 				for i := 0; i < len(playArea.enemyList); i++ {
 					if heroShot.hitBox.Intersect(playArea.enemyList[i].hitBox) !=
 						pixel.R(0, 0, 0, 0) {
+						score += 20
 						playArea.enemyList = removeEnemyFromEnemyList(playArea.enemyList, i)
 						heroShot.active = false
 					}
@@ -432,6 +458,7 @@ func run() {
 						pixel.R(0, 0, 0, 0) {
 						heroLivesRemaining -= 1
 						fmt.Println(heroLivesRemaining)
+						mageHurtAnimation(win, hero, heroSprite, hurt_mageSprite)
 						hero = buildHero(heroSprite, playArea.freeBlockList, heroLivesRemaining)
 					}
 				}
@@ -441,6 +468,7 @@ func run() {
 					pixel.R(0, 0, 0, 0) {
 					heroLivesRemaining -= 1
 					fmt.Println(heroLivesRemaining)
+					mageHurtAnimation(win, hero, heroSprite, hurt_mageSprite)
 					hero = buildHero(heroSprite, playArea.freeBlockList, heroLivesRemaining)
 					enemyShot.active = false
 				}
@@ -456,9 +484,14 @@ func run() {
 						hero.hitBox = pixel.Rect{hero.hitBox.Min.Add(pixel.Vec{0, -0.75}),
 							hero.hitBox.Max.Add(pixel.Vec{0, -0.75})}
 					}
+					// enemy list empty
 					if len(playArea.enemyList) == 0 {
+						// advance level pointer
 						levelEnvironmentPtr += 1
 						beatLevel = true
+						if levelEnvironmentPtr > 3 {
+							gameWin = true
+						}
 					}
 				}
 				// draw all tile rectangles in imd on window (for debug use)
@@ -467,17 +500,30 @@ func run() {
 				win.Update()
 			}
 		}
+		if gameOver == true {
+			// game over screen
+			gameOverAtlas := text.NewAtlas(basicfont.Face7x13, text.ASCII)
+			gamesOverTxt := text.New(win.Bounds().Center().Add(pixel.Vec{-120, 0}), gameOverAtlas)
 
-		// game over screen
-		basicAtlas := text.NewAtlas(basicfont.Face7x13, text.ASCII)
-		basicTxt := text.New(win.Bounds().Center().Add(pixel.Vec{-120, 0}), basicAtlas)
+			fmt.Fprintln(gamesOverTxt, "GAME OVER")
 
-		fmt.Fprintln(basicTxt, "GAME OVER")
+			win.Clear(colornames.Black)
 
-		win.Clear(colornames.Black)
+			gamesOverTxt.Draw(win, pixel.IM.Scaled(gamesOverTxt.Orig, 4))
+			win.Update()
+		}
 
-		basicTxt.Draw(win, pixel.IM.Scaled(basicTxt.Orig, 4))
-		win.Update()
+		if gameWin == true {
+			gameWinAtlas := text.NewAtlas(basicfont.Face7x13, text.ASCII)
+			gamesWinTxt := text.New(win.Bounds().Center().Add(pixel.Vec{-200, 0}), gameWinAtlas)
+
+			fmt.Fprintln(gamesWinTxt, "You beat the Dark Mages. Well done, sire.")
+
+			win.Clear(colornames.Darkgreen)
+
+			gamesWinTxt.Draw(win, pixel.IM.Scaled(gamesWinTxt.Orig, 2))
+			win.Update()
+		}
 
 	}
 }
@@ -652,9 +698,7 @@ func determineEnemyShotDeltaMove(heroObj *hero, initialEnemyShotLocation pixel.V
 	return []float64{unitVec.X, unitVec.Y}
 }
 
-// create board for level 1 - first determine which tiles will be
-
-// --------- Level Layouts -------------------------
+// ---------------------------------- Level Layouts ----------------------------------------------
 
 // builds level1 object
 func makeLevel1(wallPic pixel.Picture, wallSprite *pixel.Sprite, winTileLst []pixel.Rect) level {
@@ -663,7 +707,7 @@ func makeLevel1(wallPic pixel.Picture, wallSprite *pixel.Sprite, winTileLst []pi
 	var level1WallList []pixel.Rect
 
 	// wallList holds all rects
-	level1 := level{level1WallList, wallBatch, "Level 1", 1}
+	level1 := level{level1WallList, wallBatch, "LEVEL 1", 1}
 
 	// Add wall tiles appropriate to level1 and draw wall sprites to level1 batch
 	// bottom wall
@@ -716,7 +760,7 @@ func makeLevel2(wallPic pixel.Picture, wallSprite *pixel.Sprite, winTileLst []pi
 	var level1WallList []pixel.Rect
 
 	// wallList holds all rects
-	level2 := level{level1WallList, wallBatch, "Level 2", 2}
+	level2 := level{level1WallList, wallBatch, "LEVEL 2", 2}
 
 	// Add wall tiles appropriate to level1 and draw wall sprites to level1 batch
 	// bottom wall
@@ -769,7 +813,7 @@ func makeLevel3(wallPic pixel.Picture, wallSprite *pixel.Sprite, winTileLst []pi
 	var level1WallList []pixel.Rect
 
 	// wallList holds all rects
-	level3 := level{level1WallList, wallBatch, "Level 3", 3}
+	level3 := level{level1WallList, wallBatch, "LEVEL 3", 3}
 
 	// Add wall tiles appropriate to level1 and draw wall sprites to level1 batch
 	// bottom wall
@@ -812,7 +856,7 @@ func makeLevel4(wallPic pixel.Picture, wallSprite *pixel.Sprite, winTileLst []pi
 	var level1WallList []pixel.Rect
 
 	// wallList holds all rects
-	level4 := level{level1WallList, wallBatch, "Level 4", 4}
+	level4 := level{level1WallList, wallBatch, "LEVEL 4", 4}
 
 	// Add wall tiles appropriate to level1 and draw wall sprites to level1 batch
 	// bottom wall
@@ -842,4 +886,18 @@ func makeLevel4(wallPic pixel.Picture, wallSprite *pixel.Sprite, winTileLst []pi
 	}
 
 	return level4
+}
+
+// -------
+
+func mageHurtAnimation(window *pixelgl.Window, heroObj *hero, heroSprite *pixel.Sprite, hurtSprite *pixel.Sprite) {
+	for i := 0; i < 75; i++ {
+		heroObj.sprite = heroSprite
+		heroObj.drawHero(window)
+		window.Update()
+		heroObj.sprite = hurtSprite
+		heroObj.drawHero(window)
+		window.Update()
+	}
+	window.Clear(colornames.Darkgrey)
 }
