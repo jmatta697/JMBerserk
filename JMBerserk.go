@@ -809,42 +809,95 @@ func makeLevel1(wallPic pixel.Picture, wallSprite *pixel.Sprite, winTileLst []pi
 		wallSprite.Draw(wallBatch, pixel.IM.Moved(winTileLst[i].Center()))
 	}
 	// BOTTOM ADJACENT
+	for i := 25; i < 47; i++ {
+		level1.adjacentWallTiles = append(level1.adjacentWallTiles, winTileLst[i])
+	}
 
 	// left wall
 	for i := 24; i < 456; i += 24 {
 		level1.wallTileList = append(level1.wallTileList, winTileLst[i])
 		wallSprite.Draw(wallBatch, pixel.IM.Moved(winTileLst[i].Center()))
 	}
+	// LEFT ADJACENT
+	for i := 49; i < 433; i += 24 {
+		level1.adjacentWallTiles = append(level1.adjacentWallTiles, winTileLst[i])
+	}
+
 	// right wall
 	for i := 47; i < 456; i += 24 {
 		level1.wallTileList = append(level1.wallTileList, winTileLst[i])
 		wallSprite.Draw(wallBatch, pixel.IM.Moved(winTileLst[i].Center()))
 	}
+	// RIGHT ADJACENT
+	for i := 70; i < 454; i += 24 {
+		level1.adjacentWallTiles = append(level1.adjacentWallTiles, winTileLst[i])
+	}
+
 	// top left wall
 	for i := 456; i < 465; i++ {
 		level1.wallTileList = append(level1.wallTileList, winTileLst[i])
 		wallSprite.Draw(wallBatch, pixel.IM.Moved(winTileLst[i].Center()))
 	}
+	// TOP LEFT WALL ADJ
+	for i := 433; i < 442; i++ {
+		level1.adjacentWallTiles = append(level1.adjacentWallTiles, winTileLst[i])
+	}
+
 	// top right wall
 	for i := 471; i < len(winTileLst); i++ {
 		level1.wallTileList = append(level1.wallTileList, winTileLst[i])
 		wallSprite.Draw(wallBatch, pixel.IM.Moved(winTileLst[i].Center()))
 	}
+	// TOP RIGHT WALL ADJ
+	for i := 446; i < 455; i++ {
+		level1.adjacentWallTiles = append(level1.adjacentWallTiles, winTileLst[i])
+	}
+	level1.adjacentWallTiles = append(level1.adjacentWallTiles, winTileLst[465])
+	level1.adjacentWallTiles = append(level1.adjacentWallTiles, winTileLst[470])
+
 	// left inside wall
 	for i := 125; i < 342; i += 24 {
 		level1.wallTileList = append(level1.wallTileList, winTileLst[i])
 		wallSprite.Draw(wallBatch, pixel.IM.Moved(winTileLst[i].Center()))
 	}
+	// LEFT INSIDE WALL ADJ
+	for i := 100; i < 365; i += 24 {
+		level1.adjacentWallTiles = append(level1.adjacentWallTiles, winTileLst[i])
+	}
+	for i := 102; i < 367; i += 24 {
+		level1.adjacentWallTiles = append(level1.adjacentWallTiles, winTileLst[i])
+	}
+	level1.adjacentWallTiles = append(level1.adjacentWallTiles, winTileLst[101])
+	level1.adjacentWallTiles = append(level1.adjacentWallTiles, winTileLst[365])
+
 	// middle wall
 	for i := 246; i < 258; i++ {
 		level1.wallTileList = append(level1.wallTileList, winTileLst[i])
 		wallSprite.Draw(wallBatch, pixel.IM.Moved(winTileLst[i].Center()))
 	}
+	// ADJ MIDDLE WALL
+	for i := 223; i < 233; i++ {
+		level1.adjacentWallTiles = append(level1.adjacentWallTiles, winTileLst[i])
+	}
+	for i := 271; i < 281; i++ {
+		level1.adjacentWallTiles = append(level1.adjacentWallTiles, winTileLst[i])
+	}
+
 	// right inside wall
 	for i := 138; i < 355; i += 24 {
 		level1.wallTileList = append(level1.wallTileList, winTileLst[i])
 		wallSprite.Draw(wallBatch, pixel.IM.Moved(winTileLst[i].Center()))
 	}
+	// ADJ INSIDE RIGHT WALL
+	for i := 113; i < 378; i += 24 {
+		level1.adjacentWallTiles = append(level1.adjacentWallTiles, winTileLst[i])
+	}
+	for i := 115; i < 380; i += 24 {
+		level1.adjacentWallTiles = append(level1.adjacentWallTiles, winTileLst[i])
+	}
+	level1.adjacentWallTiles = append(level1.adjacentWallTiles, winTileLst[114])
+	level1.adjacentWallTiles = append(level1.adjacentWallTiles, winTileLst[378])
+
 	return level1
 }
 
@@ -853,9 +906,11 @@ func makeLevel2(wallPic pixel.Picture, wallSprite *pixel.Sprite, winTileLst []pi
 
 	wallBatch := makeWallBatch(wallPic)
 	var level1WallList []pixel.Rect
+	var level2AdjacentWallTiles []pixel.Rect
 
 	// wallList holds all rects
-	level2 := level{level1WallList, wallBatch, "LEVEL 2", 2}
+	level2 := level{level1WallList, level2AdjacentWallTiles, wallBatch,
+		"LEVEL 2", 2}
 
 	// Add wall tiles appropriate to level1 and draw wall sprites to level1 batch
 	// bottom wall
@@ -863,41 +918,89 @@ func makeLevel2(wallPic pixel.Picture, wallSprite *pixel.Sprite, winTileLst []pi
 		level2.wallTileList = append(level2.wallTileList, winTileLst[i])
 		wallSprite.Draw(wallBatch, pixel.IM.Moved(winTileLst[i].Center()))
 	}
+	// BOTTOM ADJACENT
+	for i := 25; i < 47; i++ {
+		level2.adjacentWallTiles = append(level2.adjacentWallTiles, winTileLst[i])
+	}
 	// left wall
 	for i := 24; i < 456; i += 24 {
 		level2.wallTileList = append(level2.wallTileList, winTileLst[i])
 		wallSprite.Draw(wallBatch, pixel.IM.Moved(winTileLst[i].Center()))
+	}
+	// LEFT ADJACENT
+	for i := 49; i < 433; i += 24 {
+		level2.adjacentWallTiles = append(level2.adjacentWallTiles, winTileLst[i])
 	}
 	// right wall
 	for i := 47; i < 456; i += 24 {
 		level2.wallTileList = append(level2.wallTileList, winTileLst[i])
 		wallSprite.Draw(wallBatch, pixel.IM.Moved(winTileLst[i].Center()))
 	}
+	// RIGHT ADJACENT
+	for i := 70; i < 454; i += 24 {
+		level2.adjacentWallTiles = append(level2.adjacentWallTiles, winTileLst[i])
+	}
 	// top left wall
 	for i := 456; i < 465; i++ {
 		level2.wallTileList = append(level2.wallTileList, winTileLst[i])
 		wallSprite.Draw(wallBatch, pixel.IM.Moved(winTileLst[i].Center()))
+	}
+	// TOP LEFT WALL ADJ
+	for i := 433; i < 442; i++ {
+		level2.adjacentWallTiles = append(level2.adjacentWallTiles, winTileLst[i])
 	}
 	// top right wall
 	for i := 471; i < len(winTileLst); i++ {
 		level2.wallTileList = append(level2.wallTileList, winTileLst[i])
 		wallSprite.Draw(wallBatch, pixel.IM.Moved(winTileLst[i].Center()))
 	}
+	// TOP RIGHT WALL ADJ
+	for i := 446; i < 455; i++ {
+		level2.adjacentWallTiles = append(level2.adjacentWallTiles, winTileLst[i])
+	}
+	level2.adjacentWallTiles = append(level2.adjacentWallTiles, winTileLst[465])
+	level2.adjacentWallTiles = append(level2.adjacentWallTiles, winTileLst[470])
 	// left inside wall
-	for i := 197; i < 293; i += 24 {
+	for i := 197; i < 294; i += 24 {
 		level2.wallTileList = append(level2.wallTileList, winTileLst[i])
 		wallSprite.Draw(wallBatch, pixel.IM.Moved(winTileLst[i].Center()))
 	}
+	// LEFT INSIDE WALL ADJ
+	for i := 172; i < 317; i += 24 {
+		level2.adjacentWallTiles = append(level2.adjacentWallTiles, winTileLst[i])
+	}
+	for i := 174; i < 319; i += 24 {
+		level2.adjacentWallTiles = append(level2.adjacentWallTiles, winTileLst[i])
+	}
+	level2.adjacentWallTiles = append(level2.adjacentWallTiles, winTileLst[173])
+	level2.adjacentWallTiles = append(level2.adjacentWallTiles, winTileLst[317])
 	// middle wall
-	for i := 246; i < 259; i++ {
+	for i := 246; i < 258; i++ {
 		level2.wallTileList = append(level2.wallTileList, winTileLst[i])
 		wallSprite.Draw(wallBatch, pixel.IM.Moved(winTileLst[i].Center()))
+	}
+	// ADJ MIDDLE WALL
+	for i := 223; i < 233; i++ {
+		level2.adjacentWallTiles = append(level2.adjacentWallTiles, winTileLst[i])
+	}
+	for i := 271; i < 281; i++ {
+		level2.adjacentWallTiles = append(level2.adjacentWallTiles, winTileLst[i])
 	}
 	// right inside wall
-	for i := 211; i < 308; i += 24 {
+	for i := 210; i < 307; i += 24 {
 		level2.wallTileList = append(level2.wallTileList, winTileLst[i])
 		wallSprite.Draw(wallBatch, pixel.IM.Moved(winTileLst[i].Center()))
 	}
+	// ADJ INSIDE RIGHT WALL
+	for i := 185; i < 330; i += 24 {
+		level2.adjacentWallTiles = append(level2.adjacentWallTiles, winTileLst[i])
+	}
+	for i := 187; i < 332; i += 24 {
+		level2.adjacentWallTiles = append(level2.adjacentWallTiles, winTileLst[i])
+	}
+	level2.adjacentWallTiles = append(level2.adjacentWallTiles, winTileLst[186])
+	level2.adjacentWallTiles = append(level2.adjacentWallTiles, winTileLst[330])
+
 	return level2
 }
 
@@ -906,9 +1009,11 @@ func makeLevel3(wallPic pixel.Picture, wallSprite *pixel.Sprite, winTileLst []pi
 
 	wallBatch := makeWallBatch(wallPic)
 	var level1WallList []pixel.Rect
+	var level3AdjWallList []pixel.Rect
 
 	// wallList holds all rects
-	level3 := level{level1WallList, wallBatch, "LEVEL 3", 3}
+	level3 := level{level1WallList, level3AdjWallList, wallBatch,
+		"LEVEL 3", 3}
 
 	// Add wall tiles appropriate to level1 and draw wall sprites to level1 batch
 	// bottom wall
@@ -916,31 +1021,62 @@ func makeLevel3(wallPic pixel.Picture, wallSprite *pixel.Sprite, winTileLst []pi
 		level3.wallTileList = append(level3.wallTileList, winTileLst[i])
 		wallSprite.Draw(wallBatch, pixel.IM.Moved(winTileLst[i].Center()))
 	}
+	// BOTTOM ADJACENT
+	for i := 25; i < 47; i++ {
+		level3.adjacentWallTiles = append(level3.adjacentWallTiles, winTileLst[i])
+	}
 	// left wall
 	for i := 24; i < 456; i += 24 {
 		level3.wallTileList = append(level3.wallTileList, winTileLst[i])
 		wallSprite.Draw(wallBatch, pixel.IM.Moved(winTileLst[i].Center()))
+	}
+	// LEFT ADJACENT
+	for i := 49; i < 433; i += 24 {
+		level3.adjacentWallTiles = append(level3.adjacentWallTiles, winTileLst[i])
 	}
 	// right wall
 	for i := 47; i < 456; i += 24 {
 		level3.wallTileList = append(level3.wallTileList, winTileLst[i])
 		wallSprite.Draw(wallBatch, pixel.IM.Moved(winTileLst[i].Center()))
 	}
+	// RIGHT ADJACENT
+	for i := 70; i < 454; i += 24 {
+		level3.adjacentWallTiles = append(level3.adjacentWallTiles, winTileLst[i])
+	}
 	// top left wall
 	for i := 456; i < 465; i++ {
 		level3.wallTileList = append(level3.wallTileList, winTileLst[i])
 		wallSprite.Draw(wallBatch, pixel.IM.Moved(winTileLst[i].Center()))
+	}
+	// TOP LEFT WALL ADJ
+	for i := 433; i < 442; i++ {
+		level3.adjacentWallTiles = append(level3.adjacentWallTiles, winTileLst[i])
 	}
 	// top right wall
 	for i := 471; i < len(winTileLst); i++ {
 		level3.wallTileList = append(level3.wallTileList, winTileLst[i])
 		wallSprite.Draw(wallBatch, pixel.IM.Moved(winTileLst[i].Center()))
 	}
+	// TOP RIGHT WALL ADJ
+	for i := 446; i < 455; i++ {
+		level3.adjacentWallTiles = append(level3.adjacentWallTiles, winTileLst[i])
+	}
+	level3.adjacentWallTiles = append(level3.adjacentWallTiles, winTileLst[465])
+	level3.adjacentWallTiles = append(level3.adjacentWallTiles, winTileLst[470])
 	// middle wall
-	for i := 246; i < 258; i++ {
+	for i := 246; i < 259; i++ {
 		level3.wallTileList = append(level3.wallTileList, winTileLst[i])
 		wallSprite.Draw(wallBatch, pixel.IM.Moved(winTileLst[i].Center()))
 	}
+	// ADJ MIDDLE WALL
+	for i := 221; i < 235; i++ {
+		level3.adjacentWallTiles = append(level3.adjacentWallTiles, winTileLst[i])
+	}
+	for i := 269; i < 283; i++ {
+		level3.adjacentWallTiles = append(level3.adjacentWallTiles, winTileLst[i])
+	}
+	level3.adjacentWallTiles = append(level3.adjacentWallTiles, winTileLst[245])
+	level3.adjacentWallTiles = append(level3.adjacentWallTiles, winTileLst[259])
 	return level3
 }
 
@@ -949,9 +1085,11 @@ func makeLevel4(wallPic pixel.Picture, wallSprite *pixel.Sprite, winTileLst []pi
 
 	wallBatch := makeWallBatch(wallPic)
 	var level1WallList []pixel.Rect
+	var level4AdjWallList []pixel.Rect
 
 	// wallList holds all rects
-	level4 := level{level1WallList, wallBatch, "LEVEL 4", 4}
+	level4 := level{level1WallList, level4AdjWallList, wallBatch,
+		"LEVEL 4", 4}
 
 	// Add wall tiles appropriate to level1 and draw wall sprites to level1 batch
 	// bottom wall
@@ -959,25 +1097,45 @@ func makeLevel4(wallPic pixel.Picture, wallSprite *pixel.Sprite, winTileLst []pi
 		level4.wallTileList = append(level4.wallTileList, winTileLst[i])
 		wallSprite.Draw(wallBatch, pixel.IM.Moved(winTileLst[i].Center()))
 	}
+	// BOTTOM ADJACENT
+	for i := 25; i < 47; i++ {
+		level4.adjacentWallTiles = append(level4.adjacentWallTiles, winTileLst[i])
+	}
 	// left wall
 	for i := 24; i < 456; i += 24 {
 		level4.wallTileList = append(level4.wallTileList, winTileLst[i])
 		wallSprite.Draw(wallBatch, pixel.IM.Moved(winTileLst[i].Center()))
+	}
+	// LEFT ADJACENT
+	for i := 49; i < 433; i += 24 {
+		level4.adjacentWallTiles = append(level4.adjacentWallTiles, winTileLst[i])
 	}
 	// right wall
 	for i := 47; i < 456; i += 24 {
 		level4.wallTileList = append(level4.wallTileList, winTileLst[i])
 		wallSprite.Draw(wallBatch, pixel.IM.Moved(winTileLst[i].Center()))
 	}
+	// RIGHT ADJACENT
+	for i := 70; i < 454; i += 24 {
+		level4.adjacentWallTiles = append(level4.adjacentWallTiles, winTileLst[i])
+	}
 	// top left wall
 	for i := 456; i < 465; i++ {
 		level4.wallTileList = append(level4.wallTileList, winTileLst[i])
 		wallSprite.Draw(wallBatch, pixel.IM.Moved(winTileLst[i].Center()))
 	}
+	// TOP LEFT WALL ADJ
+	for i := 433; i < 442; i++ {
+		level4.adjacentWallTiles = append(level4.adjacentWallTiles, winTileLst[i])
+	}
 	// top right wall
 	for i := 471; i < len(winTileLst); i++ {
 		level4.wallTileList = append(level4.wallTileList, winTileLst[i])
 		wallSprite.Draw(wallBatch, pixel.IM.Moved(winTileLst[i].Center()))
+	}
+	// TOP RIGHT WALL ADJ
+	for i := 446; i < 455; i++ {
+		level4.adjacentWallTiles = append(level4.adjacentWallTiles, winTileLst[i])
 	}
 
 	return level4
