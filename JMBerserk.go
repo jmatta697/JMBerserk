@@ -2,13 +2,12 @@ package main
 
 import (
 	"fmt"
+	"github.com/faiface/beep"
+	"github.com/faiface/beep/speaker"
+	"github.com/faiface/beep/wav"
+	"github.com/faiface/pixel"
 	"strconv"
 
-	// "github.com/faiface/beep"
-	// "github.com/faiface/beep/mp3"
-	// "github.com/faiface/beep/speaker"
-	// "github.com/faiface/beep/wav"
-	"github.com/faiface/pixel"
 	// "github.com/faiface/pixel/imdraw"
 	"github.com/faiface/pixel/pixelgl"
 	"github.com/faiface/pixel/text"
@@ -90,10 +89,11 @@ func (enemyObj darkMage) updateEnemyHitBox(moveDirection []float64) pixel.Rect {
 // ----------------------
 
 type level struct {
-	wallTileList []pixel.Rect
-	wallBatch    *pixel.Batch
-	levelDescrpt string
-	levelNum     int
+	wallTileList      []pixel.Rect
+	adjacentWallTiles []pixel.Rect
+	wallBatch         *pixel.Batch
+	levelDescrpt      string
+	levelNum          int
 }
 
 // ------------------------------
@@ -137,25 +137,25 @@ func getShotMoveDirection(directionCode float64) []float64 {
 	deltaY := 0.0
 	switch directionCode {
 	case float64(0):
-		deltaX = -0.75
+		deltaX = -1
 	case float64(1):
-		deltaX = 0.75
+		deltaX = 1
 	case float64(2):
-		deltaY = 0.75
+		deltaY = 1
 	case float64(3):
-		deltaY = -0.75
+		deltaY = -1
 	case float64(4):
-		deltaX = 0.75
-		deltaY = -0.75
+		deltaX = 1
+		deltaY = -1
 	case float64(5):
-		deltaX = -0.75
-		deltaY = -0.75
+		deltaX = -1
+		deltaY = -1
 	case float64(6):
-		deltaX = 0.75
-		deltaY = 0.75
+		deltaX = 1
+		deltaY = 1
 	case float64(7):
-		deltaX = -0.75
-		deltaY = 0.75
+		deltaX = -1
+		deltaY = 1
 	}
 	deltaPoint[0] = deltaX
 	deltaPoint[1] = deltaY
@@ -254,32 +254,107 @@ func run() {
 	enemyMoveTicker := time.NewTicker(time.Millisecond * 50)
 	// var indexRemovalList []int
 
-	//beatGameSound, _ := os.Open("beatGame.mp3")
-	//enemyDiesSound, _ := os.Open("enemyDies.wav")
-	//enemyShotSound, _ := os.Open("enemyShot.wav")
-	//gameOverSound, _ := os.Open("gameOver.wav")
-	//heroDiesSound, _ := os.Open("heroDies.wav")
-	//heroShotSound, _ := os.Open("heroShot.wav")
-	//
-	//SoundCh := make(chan int)
-	//done := make(chan struct{})
-	//
-	//// sound thread
-	//go func() {
-	//	for range SoundCh {
-	//		s, _, _ := wav.Decode(heroShotSound)
-	//		speaker.Play(beep.Seq(s, beep.Callback(func() {
-	//			close(done)
-	//		})))
-	//		<-done
-	//	}
-	//}()
+	beatGameSound, _ := os.Open("beatGame.wav")
+	enemyDiesSound, _ := os.Open("enemyDies.wav")
+	enemyShotSound, _ := os.Open("enemyShot.wav")
+	gameOverSound, _ := os.Open("gameOver.wav")
+	heroDiesSound, _ := os.Open("heroDies.wav")
+	heroShotSound, _ := os.Open("heroShot.wav")
+
+	beatGameSoundCh := make(chan int, 1)
+	gameOverSoundCh := make(chan int, 1)
+	enemyShotSoundCh := make(chan int, 1)
+	heroDiesSoundCh := make(chan int, 1)
+	heroShotSoundCh := make(chan int, 1)
+	enemyDiesSoundCh := make(chan int, 1)
+
+	done := make(chan struct{})
+
+	// decode all sound files
+	beatGameSondDecoded, wavFormat, _ := wav.Decode(beatGameSound)
+	heroShotSoundDecoded, wavFormat, _ := wav.Decode(heroShotSound)
+	heroDiesSoundDecoded, wavFormat, _ := wav.Decode(heroDiesSound)
+	enemyDiesSoundDecoded, wavFormat, _ := wav.Decode(enemyDiesSound)
+	enemyShotSoundDecoded, wavFormat, _ := wav.Decode(enemyShotSound)
+	gameOverSoundDecoded, wavFormat, _ := wav.Decode(gameOverSound)
+
+	speaker.Init(wavFormat.SampleRate, wavFormat.SampleRate.N(time.Second/10))
+
+	//func sendToDone
+	var something struct{}
+
+	// game over sound thread
+	go func() {
+		<-gameOverSoundCh
+		speaker.Play(gameOverSoundDecoded)
+	}()
+	go func() {
+		<-beatGameSoundCh
+		speaker.Play(beatGameSondDecoded)
+	}()
 
 	beatLevel := false
 	gameOver := false
 	gameWin := false
 	// OUTSIDE GAME LOOP //
 	for !win.Closed() {
+
+		go func() {
+			for {
+				<-heroShotSoundCh
+				heroShotSoundDecoded.Seek(0)
+				speaker.Play(beep.Seq(heroShotSoundDecoded, beep.Callback(func() {
+					done <- something
+				})))
+				<-done
+				// clear channel
+				for len(heroShotSoundCh) > 0 {
+					<-heroShotSoundCh
+				}
+			}
+		}()
+		go func() {
+			for {
+				<-heroDiesSoundCh
+				heroDiesSoundDecoded.Seek(0)
+				speaker.Play(beep.Seq(heroDiesSoundDecoded, beep.Callback(func() {
+					done <- something
+				})))
+				<-done
+				// clear channel
+				for len(heroDiesSoundCh) > 0 {
+					<-heroDiesSoundCh
+				}
+			}
+		}()
+		go func() {
+			for {
+				<-enemyDiesSoundCh
+				enemyDiesSoundDecoded.Seek(0)
+				speaker.Play(beep.Seq(enemyDiesSoundDecoded, beep.Callback(func() {
+					done <- something
+				})))
+				<-done
+				// clear channel
+				for len(enemyDiesSoundCh) > 0 {
+					<-enemyDiesSoundCh
+				}
+			}
+		}()
+		go func() {
+			for {
+				<-enemyShotSoundCh
+				enemyShotSoundDecoded.Seek(0)
+				speaker.Play(beep.Seq(enemyShotSoundDecoded, beep.Callback(func() {
+					done <- something
+				})))
+				<-done
+				// clear channel
+				for len(enemyShotSoundCh) > 0 {
+					<-enemyShotSoundCh
+				}
+			}
+		}()
 
 		score := 0
 
@@ -294,7 +369,7 @@ func run() {
 		levelLabelTxt := text.New(win.Bounds().Center().Add(pixel.Vec{-350, 298}), levelLabelAtlas)
 
 		// GAME LOOP //
-		for !win.Closed() && !gameOver && levelEnvironmentPtr < 4 {
+		for !win.Closed() && !gameOver && levelEnvironmentPtr < 4 && !gameWin {
 
 			beatLevel = false
 			playArea := makePlayArea(levelList[levelEnvironmentPtr], *darkMageSprite, windowTileList)
@@ -307,6 +382,9 @@ func run() {
 					if len(playArea.enemyList) != 0 && enemyShot.active == false {
 						randShotChance := rand.Intn(100)
 						if randShotChance < (20 * playArea.levelEnvironment.levelNum) {
+							if !gameWin && !gameOver {
+								enemyShotSoundCh <- 1
+							}
 							// pick random dark mage from list
 							randDarkMageIndex := rand.Intn(len(playArea.enemyList))
 							newEnemyShotLocationMin := playArea.enemyList[randDarkMageIndex].hitBox.Center()
@@ -341,6 +419,9 @@ func run() {
 								if len(playArea.enemyList) != 0 &&
 									playArea.enemyList[i].hitBox.Intersect(playArea.levelEnvironment.wallTileList[j]) !=
 										pixel.R(0, 0, 0, 0) {
+									if !gameWin && !gameOver {
+										enemyDiesSoundCh <- 1
+									}
 									score += 20
 									playArea.enemyList = removeEnemyFromEnemyList(playArea.enemyList, i)
 									break
@@ -352,7 +433,7 @@ func run() {
 			}()
 
 			// MAIN SCREEN REFRESH WITHIN LEVEL //
-			for !win.Closed() && !gameOver && !beatLevel {
+			for !win.Closed() && !gameOver && !beatLevel && !gameWin {
 
 				win.Clear(colornames.Darkgrey)
 				levelLabelTxt.Clear()
@@ -400,9 +481,10 @@ func run() {
 
 					heroShot.deltaMove = shotMoveDirection
 
-					// SoundCh <- 1
-
 					heroShot.active = true
+					if len(heroShotSoundCh) == 0 {
+						heroShotSoundCh <- 1
+					}
 				}
 
 				// keep redrawing shot is still active
@@ -446,6 +528,7 @@ func run() {
 				for i := 0; i < len(playArea.enemyList); i++ {
 					if heroShot.hitBox.Intersect(playArea.enemyList[i].hitBox) !=
 						pixel.R(0, 0, 0, 0) {
+						enemyDiesSoundCh <- 1
 						score += 20
 						playArea.enemyList = removeEnemyFromEnemyList(playArea.enemyList, i)
 						heroShot.active = false
@@ -456,9 +539,11 @@ func run() {
 				for i := 0; i < len(playArea.levelEnvironment.wallTileList); i++ {
 					if hero.hitBox.Intersect(playArea.levelEnvironment.wallTileList[i]) !=
 						pixel.R(0, 0, 0, 0) {
+						heroDiesSoundCh <- 1
 						heroLivesRemaining -= 1
 						fmt.Println(heroLivesRemaining)
 						mageHurtAnimation(win, hero, heroSprite, hurt_mageSprite)
+
 						hero = buildHero(heroSprite, playArea.freeBlockList, heroLivesRemaining)
 					}
 				}
@@ -466,6 +551,7 @@ func run() {
 				// check for enemy shot with hero
 				if enemyShot.hitBox.Intersect(hero.hitBox) !=
 					pixel.R(0, 0, 0, 0) {
+					heroDiesSoundCh <- 1
 					heroLivesRemaining -= 1
 					fmt.Println(heroLivesRemaining)
 					mageHurtAnimation(win, hero, heroSprite, hurt_mageSprite)
@@ -474,6 +560,7 @@ func run() {
 				}
 
 				if heroLivesRemaining <= 0 {
+					gameOverSoundCh <- 1
 					gameOver = true
 
 				}
@@ -490,6 +577,7 @@ func run() {
 						levelEnvironmentPtr += 1
 						beatLevel = true
 						if levelEnvironmentPtr > 3 {
+							beatGameSoundCh <- 1
 							gameWin = true
 						}
 					}
@@ -500,6 +588,9 @@ func run() {
 				win.Update()
 			}
 		}
+
+		// CLOSE ALL SOUND CHANNELS *******
+
 		if gameOver == true {
 			// game over screen
 			gameOverAtlas := text.NewAtlas(basicfont.Face7x13, text.ASCII)
@@ -515,7 +606,7 @@ func run() {
 
 		if gameWin == true {
 			gameWinAtlas := text.NewAtlas(basicfont.Face7x13, text.ASCII)
-			gamesWinTxt := text.New(win.Bounds().Center().Add(pixel.Vec{-200, 0}), gameWinAtlas)
+			gamesWinTxt := text.New(win.Bounds().Center().Add(pixel.Vec{-250, 0}), gameWinAtlas)
 
 			fmt.Fprintln(gamesWinTxt, "You beat the Dark Mages. Well done, sire.")
 
@@ -705,9 +796,11 @@ func makeLevel1(wallPic pixel.Picture, wallSprite *pixel.Sprite, winTileLst []pi
 
 	wallBatch := makeWallBatch(wallPic)
 	var level1WallList []pixel.Rect
+	var level1AdjacentWallTile []pixel.Rect
 
 	// wallList holds all rects
-	level1 := level{level1WallList, wallBatch, "LEVEL 1", 1}
+	level1 := level{level1WallList, level1AdjacentWallTile, wallBatch,
+		"LEVEL 1", 1}
 
 	// Add wall tiles appropriate to level1 and draw wall sprites to level1 batch
 	// bottom wall
@@ -715,6 +808,8 @@ func makeLevel1(wallPic pixel.Picture, wallSprite *pixel.Sprite, winTileLst []pi
 		level1.wallTileList = append(level1.wallTileList, winTileLst[i])
 		wallSprite.Draw(wallBatch, pixel.IM.Moved(winTileLst[i].Center()))
 	}
+	// BOTTOM ADJACENT
+
 	// left wall
 	for i := 24; i < 456; i += 24 {
 		level1.wallTileList = append(level1.wallTileList, winTileLst[i])
@@ -794,7 +889,7 @@ func makeLevel2(wallPic pixel.Picture, wallSprite *pixel.Sprite, winTileLst []pi
 		wallSprite.Draw(wallBatch, pixel.IM.Moved(winTileLst[i].Center()))
 	}
 	// middle wall
-	for i := 246; i < 258; i++ {
+	for i := 246; i < 259; i++ {
 		level2.wallTileList = append(level2.wallTileList, winTileLst[i])
 		wallSprite.Draw(wallBatch, pixel.IM.Moved(winTileLst[i].Center()))
 	}
@@ -899,5 +994,4 @@ func mageHurtAnimation(window *pixelgl.Window, heroObj *hero, heroSprite *pixel.
 		heroObj.drawHero(window)
 		window.Update()
 	}
-	window.Clear(colornames.Darkgrey)
 }
