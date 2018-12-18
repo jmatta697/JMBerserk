@@ -112,6 +112,13 @@ func (pa playArea) drawEnemies(window *pixelgl.Window) {
 		// currentEnemyMatrix = currentEnemyMatrix.ScaledXY(currentEnemyHitBox.Center(), pixel.Vec{10,10})
 		currentEnemyMatrix = currentEnemyMatrix.Moved(currentEnemyHitBox.Center())
 		currentEnemy.sprite.Draw(window, currentEnemyMatrix)
+
+		// code below is to view hit box overlay (DEBUG)
+		//imd := imdraw.New(nil)
+		//imd.Color = colornames.White
+		//imd.Push(currentEnemy.hitBox.Min, currentEnemy.hitBox.Max)
+		//imd.Rectangle(1)
+		//imd.Draw(window)
 	}
 }
 
@@ -548,6 +555,19 @@ func run() {
 					}
 				}
 
+				// check for hero collision with wall
+				for i := 0; i < len(playArea.enemyList); i++ {
+					if hero.hitBox.Intersect(playArea.enemyList[i].hitBox) !=
+						pixel.R(0, 0, 0, 0) {
+						heroDiesSoundCh <- 1
+						heroLivesRemaining -= 1
+						fmt.Println(heroLivesRemaining)
+						mageHurtAnimation(win, hero, heroSprite, hurt_mageSprite)
+
+						hero = buildHero(heroSprite, playArea.freeBlockList, heroLivesRemaining)
+					}
+				}
+
 				// check for enemy shot with hero
 				if enemyShot.hitBox.Intersect(hero.hitBox) !=
 					pixel.R(0, 0, 0, 0) {
@@ -671,6 +691,8 @@ func makePlayArea(lvl level, enemySpite pixel.Sprite, winTileList []pixel.Rect) 
 	// this is all unoccupied blocks in this play area (all window tiles - level wall blocks)
 	availableBlockList := getAvailableTiles(winTileList, lvl)
 
+	enemyHitBoxScaleMin := pixel.Vec{-5, -5}
+	enemyHitBoxScaleMax := pixel.Vec{5, 5}
 	// build enemy list
 	for i := 0; i < 4+(2*lvl.levelNum); i++ {
 		// random element index for picking out a block to place an enemy
@@ -679,7 +701,8 @@ func makePlayArea(lvl level, enemySpite pixel.Sprite, winTileList []pixel.Rect) 
 		placementTileMin := availableBlockList[n].Min
 		placementTileMax := availableBlockList[n].Max
 		// make enemy's hit box location and size
-		enemyHitBox := pixel.Rect{placementTileMin, placementTileMax}
+		enemyHitBox := pixel.Rect{placementTileMin.Add(enemyHitBoxScaleMin),
+			placementTileMax.Add(enemyHitBoxScaleMax)}
 		darkMageObj := darkMage{enemySpite, enemyHitBox}
 		enemyList = append(enemyList, darkMageObj)
 		// remove the block that is taken up by the newly added enemy
