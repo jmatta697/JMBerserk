@@ -2,6 +2,10 @@ package main
 
 import (
 	"fmt"
+	// "github.com/faiface/beep"
+	// "github.com/faiface/beep/mp3"
+	// "github.com/faiface/beep/speaker"
+	// "github.com/faiface/beep/wav"
 	"github.com/faiface/pixel"
 	"github.com/faiface/pixel/imdraw"
 	"github.com/faiface/pixel/pixelgl"
@@ -291,6 +295,27 @@ func run() {
 		}
 	}()
 
+	//beatGameSound, _ := os.Open("beatGame.mp3")
+	//enemyDiesSound, _ := os.Open("enemyDies.wav")
+	//enemyShotSound, _ := os.Open("enemyShot.wav")
+	//gameOverSound, _ := os.Open("gameOver.wav")
+	//heroDiesSound, _ := os.Open("heroDies.wav")
+	//heroShotSound, _ := os.Open("heroShot.wav")
+	//
+	//SoundCh := make(chan int)
+	//done := make(chan struct{})
+	//
+	//// sound thread
+	//go func() {
+	//	for range SoundCh {
+	//		s, _, _ := wav.Decode(heroShotSound)
+	//		speaker.Play(beep.Seq(s, beep.Callback(func() {
+	//			close(done)
+	//		})))
+	//		<-done
+	//	}
+	//}()
+
 	// main game loop
 	for !win.Closed() {
 
@@ -334,6 +359,8 @@ func run() {
 
 				heroShot.deltaMove = shotMoveDirection
 				fmt.Println(heroShot.deltaMove)
+
+				// SoundCh <- 1
 
 				heroShot.active = true
 			}
