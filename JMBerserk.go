@@ -130,7 +130,6 @@ func buildShot(sprt *pixel.Sprite, hitBox pixel.Rect, deltaMove []float64, activ
 
 // determine move direction
 func getShotMoveDirection(directionCode float64) []float64 {
-	fmt.Println(directionCode)
 	deltaPoint := []float64{0, 0}
 	deltaX := 0.0
 	deltaY := 0.0
@@ -180,11 +179,11 @@ func (shotObj shot) drawShot(window *pixelgl.Window) {
 	shotObj.sprite.Draw(window, shotMatrix)
 
 	// code below is to view hit box overlay (DEBUG)
-	imd := imdraw.New(nil)
-	imd.Color = colornames.White
-	imd.Push(shotObj.hitBox.Min, shotObj.hitBox.Max)
-	imd.Rectangle(1)
-	imd.Draw(window)
+	//imd := imdraw.New(nil)
+	//imd.Color = colornames.White
+	//imd.Push(shotObj.hitBox.Min, shotObj.hitBox.Max)
+	//imd.Rectangle(1)
+	//imd.Draw(window)
 }
 
 // --------------------------------
@@ -200,14 +199,14 @@ func run() {
 	// all window tiles
 	windowTileList := makeTiles(win)
 
-	imd := imdraw.New(nil)
+	// imd := imdraw.New(nil)
 
 	// make imd to and fill with tile rectangles *** DEBUG ***
-	for i := 0; i < len(windowTileList); i++ {
-		imd.Color = colornames.White
-		imd.Push(windowTileList[i].Min, windowTileList[i].Max)
-		imd.Rectangle(1)
-	}
+	//for i := 0; i < len(windowTileList); i++ {
+	//	imd.Color = colornames.White
+	//	imd.Push(windowTileList[i].Min, windowTileList[i].Max)
+	//	imd.Rectangle(1)
+	//}
 
 	// loaded pics from assets
 	wallBlockPic, _ := loadPicture("wall_block.png")
@@ -226,15 +225,18 @@ func run() {
 	darkMageSprite := pixel.NewSprite(darkMagePic, darkMagePic.Bounds())
 	shotSprite := pixel.NewSprite(shotPic, shotPic.Bounds())
 
-	gameOver := false
 	// level 1 wall setup
 	level1Board := makeLevel1(wallBlockPic, wallBlockSprite, windowTileList)
+	level2Board := makeLevel2(wallBlockPic, wallBlockSprite, windowTileList)
+	level3Board := makeLevel3(wallBlockPic, wallBlockSprite, windowTileList)
+	level4Board := makeLevel4(wallBlockPic, wallBlockSprite, windowTileList)
+	levelList := []level{level1Board, level2Board, level3Board, level4Board}
+
+	levelEnvironmentPtr := 0
 	// store remaining lives
 	heroLivesRemaining := 3
 	// initialize various objects
-	playArea := makePlayArea(level1Board, *darkMageSprite, windowTileList)
-	// build hero obj
-	hero := buildHero(heroSprite, playArea.freeBlockList, heroLivesRemaining)
+
 	// build hero shot
 	heroShot := buildShot(shotSprite,
 		pixel.Rect{pixel.V(0, 0), pixel.V(5, 5)}, []float64{0.25, 0},
@@ -244,56 +246,10 @@ func run() {
 		false)
 
 	secondTicker := time.NewTicker(time.Second)
-	go func() {
-		for range secondTicker.C {
-			// Random enemy fires shot if below level-specific threshold
-			if len(playArea.enemyList) != 0 && enemyShot.active == false {
-				randShotChance := rand.Intn(100)
-				if randShotChance < (20 * playArea.levelEnvironment.levelNum) {
-					// pick random dark mage from list
-					randDarkMageIndex := rand.Intn(len(playArea.enemyList))
-					newEnemyShotLocationMin := playArea.enemyList[randDarkMageIndex].hitBox.Center()
-					newEnemyShotLocationMax := playArea.enemyList[randDarkMageIndex].hitBox.Center().Add(pixel.V(5, 5))
-					syncedEnemyShotHitBoxPosition := pixel.Rect{newEnemyShotLocationMin, newEnemyShotLocationMax}
-					enemyShot.hitBox = syncedEnemyShotHitBoxPosition
-					enemyShotDirectionVec := determineEnemyShotDeltaMove(hero, enemyShot.hitBox.Center())
-					enemyShot.deltaMove = []float64{enemyShotDirectionVec[0], enemyShotDirectionVec[1]}
-					enemyShot.active = true
-				}
-			}
-		}
-	}()
 
 	// update all enemy hit box positions based on location of hero
 	enemyMoveTicker := time.NewTicker(time.Millisecond * 50)
 	// var indexRemovalList []int
-	go func() {
-		for range enemyMoveTicker.C {
-
-			if len(playArea.enemyList) != 0 {
-				randDarkMageIndex := generateRandNum(len(playArea.enemyList))
-				enemyMoveVecDimension := determineEnemyShotDeltaMove(hero, playArea.enemyList[randDarkMageIndex].hitBox.Center())
-				addVec := pixel.Vec{enemyMoveVecDimension[0], enemyMoveVecDimension[1]}
-				currentEnemyHitBoxMin := playArea.enemyList[randDarkMageIndex].hitBox.Min
-				currentEnemyHitBoxMax := playArea.enemyList[randDarkMageIndex].hitBox.Max
-				newEnemyHitBoxMin := currentEnemyHitBoxMin.Add(addVec)
-				newEnemyHitBoxMax := currentEnemyHitBoxMax.Add(addVec)
-				playArea.enemyList[randDarkMageIndex].hitBox = pixel.Rect{newEnemyHitBoxMin, newEnemyHitBoxMax}
-
-				// check collisions with walls and
-				for i := len(playArea.enemyList) - 1; i >= 0; i-- {
-					for j := range playArea.levelEnvironment.wallTileList {
-						if len(playArea.enemyList) != 0 &&
-							playArea.enemyList[i].hitBox.Intersect(playArea.levelEnvironment.wallTileList[j]) !=
-								pixel.R(0, 0, 0, 0) {
-							playArea.enemyList = removeEnemyFromEnemyList(playArea.enemyList, i)
-							break
-						}
-					}
-				}
-			}
-		}
-	}()
 
 	//beatGameSound, _ := os.Open("beatGame.mp3")
 	//enemyDiesSound, _ := os.Open("enemyDies.wav")
@@ -316,133 +272,200 @@ func run() {
 	//	}
 	//}()
 
+	beatLevel := false
+	gameOver := false
 	// main game loop
 	for !win.Closed() {
 
+		playArea := makePlayArea(levelList[levelEnvironmentPtr], *darkMageSprite, windowTileList)
+		// build hero obj
+		hero := buildHero(heroSprite, playArea.freeBlockList, heroLivesRemaining)
+
 		for !win.Closed() && !gameOver {
-			win.Clear(colornames.Darkgrey)
 
-			// set up cases for other levels...
+			beatLevel = false
+			playArea = makePlayArea(levelList[levelEnvironmentPtr], *darkMageSprite, windowTileList)
+			hero = buildHero(heroSprite, playArea.freeBlockList, heroLivesRemaining)
 
-			// draw all pics in level wall batch
-			playArea.levelEnvironment.wallBatch.Draw(win)
-			playArea.drawEnemies(win)
-
-			// get direction of hero move from keyboard input
-			heroPositionChange := checkForKeyboardInput(win)
-			// fmt.Println(heroPositionChange)
-
-			// detect a change in hero direction and set hero last position
-			if heroPositionChange[0] != 0 || heroPositionChange[1] != 0 {
-				// assign new last hero direction
-				hero.lastDirCode = heroPositionChange[2]
-			}
-			// fmt.Printf("%v\n", heroPositionChange)
-			// fmt.Println(hero.lastDirCode)
-			// update hero hit box
-			newHeroHitBox := hero.updateHitBox(heroPositionChange)
-			hero.hitBox = newHeroHitBox
-
-			// draw hero
-			hero.drawHero(win)
-
-			// check for space bar press and build shot at hero location
-			if heroShot.active == false && win.Pressed(pixelgl.KeySpace) {
-				// set initial location of shot hit box at hero
-				newHeroShotHBMin := hero.hitBox.Center()
-				newHeroShotHBMax := hero.hitBox.Center().Add(pixel.V(5, 5))
-				syncedShotHitBoxPosition := pixel.Rect{newHeroShotHBMin, newHeroShotHBMax}
-				heroShot.hitBox = syncedShotHitBoxPosition
-
-				shotMoveDirection := getShotMoveDirection(hero.lastDirCode)
-				fmt.Println(shotMoveDirection)
-
-				heroShot.deltaMove = shotMoveDirection
-				fmt.Println(heroShot.deltaMove)
-
-				// SoundCh <- 1
-
-				heroShot.active = true
-			}
-
-			// keep redrawing shot is still active
-			if heroShot.active == true {
-				deltaDirection := heroShot.deltaMove
-				// fmt.Println(deltaDirection)
-				newShotHitBox := heroShot.updateShotHitBox(deltaDirection)
-				heroShot.hitBox = newShotHitBox
-				heroShot.drawShot(win)
-			}
-			// keep redrawing enemyShot is still active
-			if enemyShot.active == true {
-				deltaDirection := enemyShot.deltaMove
-				// fmt.Println(deltaDirection)
-				newShotHitBox := enemyShot.updateShotHitBox(deltaDirection)
-				enemyShot.hitBox = newShotHitBox
-				enemyShot.drawShot(win)
-			}
-
-			// ------------------ collision detection ---------------------------------------
-
-			// check for hero collision with board bounds
-			if hero.hitBox.Center().Y > win.Bounds().Max.Y {
-				hero.hitBox = pixel.Rect{hero.hitBox.Min.Add(pixel.Vec{0, -0.75}),
-					hero.hitBox.Max.Add(pixel.Vec{0, -0.75})}
-			}
-
-			// check for hero and enemy shot collision with wallHB
-			for i := 0; i < len(playArea.levelEnvironment.wallTileList); i++ {
-				if heroShot.hitBox.Intersect(playArea.levelEnvironment.wallTileList[i]) !=
-					pixel.R(0, 0, 0, 0) {
-					heroShot.active = false
+			go func() {
+				for range secondTicker.C {
+					// Random enemy fires shot if below level-specific threshold
+					if len(playArea.enemyList) != 0 && enemyShot.active == false {
+						randShotChance := rand.Intn(100)
+						if randShotChance < (20 * playArea.levelEnvironment.levelNum) {
+							// pick random dark mage from list
+							randDarkMageIndex := rand.Intn(len(playArea.enemyList))
+							newEnemyShotLocationMin := playArea.enemyList[randDarkMageIndex].hitBox.Center()
+							newEnemyShotLocationMax := playArea.enemyList[randDarkMageIndex].hitBox.Center().Add(pixel.V(5, 5))
+							syncedEnemyShotHitBoxPosition := pixel.Rect{newEnemyShotLocationMin, newEnemyShotLocationMax}
+							enemyShot.hitBox = syncedEnemyShotHitBoxPosition
+							enemyShotDirectionVec := determineEnemyShotDeltaMove(hero, enemyShot.hitBox.Center())
+							enemyShot.deltaMove = []float64{enemyShotDirectionVec[0], enemyShotDirectionVec[1]}
+							enemyShot.active = true
+						}
+					}
 				}
-				if heroShot.hitBox.Center().Y > win.Bounds().Max.Y {
-					heroShot.active = false
-				}
-				if enemyShot.hitBox.Intersect(playArea.levelEnvironment.wallTileList[i]) !=
-					pixel.R(0, 0, 0, 0) {
-					enemyShot.active = false
-				}
-				if enemyShot.hitBox.Center().Y > win.Bounds().Max.Y {
-					enemyShot.active = false
-				}
-			}
+			}()
 
-			// check for hero shot collision with dark mages
-			for i := 0; i < len(playArea.enemyList); i++ {
-				if heroShot.hitBox.Intersect(playArea.enemyList[i].hitBox) !=
-					pixel.R(0, 0, 0, 0) {
-					playArea.enemyList = removeEnemyFromEnemyList(playArea.enemyList, i)
-					heroShot.active = false
-				}
-			}
+			go func() {
+				for range enemyMoveTicker.C {
 
-			// check for hero collision with wall
-			for i := 0; i < len(playArea.levelEnvironment.wallTileList); i++ {
-				if hero.hitBox.Intersect(playArea.levelEnvironment.wallTileList[i]) !=
+					if len(playArea.enemyList) != 0 {
+						randDarkMageIndex := generateRandNum(len(playArea.enemyList))
+						enemyMoveVecDimension := determineEnemyShotDeltaMove(hero, playArea.enemyList[randDarkMageIndex].hitBox.Center())
+						addVec := pixel.Vec{enemyMoveVecDimension[0], enemyMoveVecDimension[1]}
+						currentEnemyHitBoxMin := playArea.enemyList[randDarkMageIndex].hitBox.Min
+						currentEnemyHitBoxMax := playArea.enemyList[randDarkMageIndex].hitBox.Max
+						newEnemyHitBoxMin := currentEnemyHitBoxMin.Add(addVec)
+						newEnemyHitBoxMax := currentEnemyHitBoxMax.Add(addVec)
+						playArea.enemyList[randDarkMageIndex].hitBox = pixel.Rect{newEnemyHitBoxMin, newEnemyHitBoxMax}
+
+						// check collisions with walls and
+						for i := len(playArea.enemyList) - 1; i >= 0; i-- {
+							for j := range playArea.levelEnvironment.wallTileList {
+								if len(playArea.enemyList) != 0 &&
+									playArea.enemyList[i].hitBox.Intersect(playArea.levelEnvironment.wallTileList[j]) !=
+										pixel.R(0, 0, 0, 0) {
+									playArea.enemyList = removeEnemyFromEnemyList(playArea.enemyList, i)
+									break
+								}
+							}
+						}
+					}
+				}
+			}()
+
+			for !win.Closed() && !gameOver && !beatLevel {
+
+				win.Clear(colornames.Darkgrey)
+
+				// set up cases for other levels...
+
+				// draw all pics in level wall batch
+				playArea.levelEnvironment.wallBatch.Draw(win)
+				playArea.drawEnemies(win)
+
+				// get direction of hero move from keyboard input
+				heroPositionChange := checkForKeyboardInput(win)
+				// fmt.Println(heroPositionChange)
+
+				// detect a change in hero direction and set hero last position
+				if heroPositionChange[0] != 0 || heroPositionChange[1] != 0 {
+					// assign new last hero direction
+					hero.lastDirCode = heroPositionChange[2]
+				}
+				// fmt.Printf("%v\n", heroPositionChange)
+				// fmt.Println(hero.lastDirCode)
+				// update hero hit box
+				newHeroHitBox := hero.updateHitBox(heroPositionChange)
+				hero.hitBox = newHeroHitBox
+
+				// draw hero
+				hero.drawHero(win)
+
+				// check for space bar press and build shot at hero location
+				if heroShot.active == false && win.Pressed(pixelgl.KeySpace) {
+					// set initial location of shot hit box at hero
+					newHeroShotHBMin := hero.hitBox.Center()
+					newHeroShotHBMax := hero.hitBox.Center().Add(pixel.V(5, 5))
+					syncedShotHitBoxPosition := pixel.Rect{newHeroShotHBMin, newHeroShotHBMax}
+					heroShot.hitBox = syncedShotHitBoxPosition
+
+					shotMoveDirection := getShotMoveDirection(hero.lastDirCode)
+
+					heroShot.deltaMove = shotMoveDirection
+
+					// SoundCh <- 1
+
+					heroShot.active = true
+				}
+
+				// keep redrawing shot is still active
+				if heroShot.active == true {
+					deltaDirection := heroShot.deltaMove
+					// fmt.Println(deltaDirection)
+					newShotHitBox := heroShot.updateShotHitBox(deltaDirection)
+					heroShot.hitBox = newShotHitBox
+					heroShot.drawShot(win)
+				}
+				// keep redrawing enemyShot is still active
+				if enemyShot.active == true {
+					deltaDirection := enemyShot.deltaMove
+					// fmt.Println(deltaDirection)
+					newShotHitBox := enemyShot.updateShotHitBox(deltaDirection)
+					enemyShot.hitBox = newShotHitBox
+					enemyShot.drawShot(win)
+				}
+
+				// ------------------ collision detection ---------------------------------------
+
+				// check for hero and enemy shot collision with wallHB
+				for i := 0; i < len(playArea.levelEnvironment.wallTileList); i++ {
+					if heroShot.hitBox.Intersect(playArea.levelEnvironment.wallTileList[i]) !=
+						pixel.R(0, 0, 0, 0) {
+						heroShot.active = false
+					}
+					if heroShot.hitBox.Center().Y > win.Bounds().Max.Y {
+						heroShot.active = false
+					}
+					if enemyShot.hitBox.Intersect(playArea.levelEnvironment.wallTileList[i]) !=
+						pixel.R(0, 0, 0, 0) {
+						enemyShot.active = false
+					}
+					if enemyShot.hitBox.Center().Y > win.Bounds().Max.Y {
+						enemyShot.active = false
+					}
+				}
+
+				// check for hero shot collision with dark mages
+				for i := 0; i < len(playArea.enemyList); i++ {
+					if heroShot.hitBox.Intersect(playArea.enemyList[i].hitBox) !=
+						pixel.R(0, 0, 0, 0) {
+						playArea.enemyList = removeEnemyFromEnemyList(playArea.enemyList, i)
+						heroShot.active = false
+					}
+				}
+
+				// check for hero collision with wall
+				for i := 0; i < len(playArea.levelEnvironment.wallTileList); i++ {
+					if hero.hitBox.Intersect(playArea.levelEnvironment.wallTileList[i]) !=
+						pixel.R(0, 0, 0, 0) {
+						heroLivesRemaining -= 1
+						fmt.Println(heroLivesRemaining)
+						hero = buildHero(heroSprite, playArea.freeBlockList, heroLivesRemaining)
+					}
+				}
+
+				// check for enemy shot with hero
+				if enemyShot.hitBox.Intersect(hero.hitBox) !=
 					pixel.R(0, 0, 0, 0) {
 					heroLivesRemaining -= 1
+					fmt.Println(heroLivesRemaining)
 					hero = buildHero(heroSprite, playArea.freeBlockList, heroLivesRemaining)
+					enemyShot.active = false
 				}
+
+				if heroLivesRemaining <= 0 {
+					gameOver = true
+
+				}
+
+				// check for hero collision with board bounds
+				if hero.hitBox.Center().Y > win.Bounds().Max.Y {
+					if len(playArea.enemyList) != 0 {
+						hero.hitBox = pixel.Rect{hero.hitBox.Min.Add(pixel.Vec{0, -0.75}),
+							hero.hitBox.Max.Add(pixel.Vec{0, -0.75})}
+					}
+					if len(playArea.enemyList) == 0 {
+						levelEnvironmentPtr += 1
+						beatLevel = true
+					}
+				}
+				// draw all tile rectangles in imd on window (for debug use)
+				// imd.Draw(win)
+
+				win.Update()
 			}
-
-			// check for enemy shot with hero
-			if enemyShot.hitBox.Intersect(hero.hitBox) !=
-				pixel.R(0, 0, 0, 0) {
-				heroLivesRemaining -= 1
-				hero = buildHero(heroSprite, playArea.freeBlockList, heroLivesRemaining)
-				enemyShot.active = false
-			}
-
-			if heroLivesRemaining == 0 {
-				gameOver = true
-
-			}
-
-			// draw all tile rectangles in imd on window (for debug use)
-			// imd.Draw(win)
-
-			win.Update()
 		}
 
 		// game over screen
@@ -500,51 +523,6 @@ func makeTiles(window *pixelgl.Window) []pixel.Rect {
 func makeWallBatch(pic pixel.Picture) *pixel.Batch {
 	batch := pixel.NewBatch(&pixel.TrianglesData{}, pic)
 	return batch
-}
-
-// builds level1 object
-func makeLevel1(wallPic pixel.Picture, wallSprite *pixel.Sprite, winTileLst []pixel.Rect) level {
-
-	wallBatch := makeWallBatch(wallPic)
-	var level1WallList []pixel.Rect
-
-	// wallList holds all rects
-	level1 := level{level1WallList, wallBatch, "Level 1", 1}
-
-	// Add wall tiles appropriate to level1 and draw wall sprites to level1 batch
-	for i := 0; i < 24; i++ {
-		level1.wallTileList = append(level1.wallTileList, winTileLst[i])
-		wallSprite.Draw(wallBatch, pixel.IM.Moved(winTileLst[i].Center()))
-	}
-	for i := 24; i < 456; i += 24 {
-		level1.wallTileList = append(level1.wallTileList, winTileLst[i])
-		wallSprite.Draw(wallBatch, pixel.IM.Moved(winTileLst[i].Center()))
-	}
-	for i := 47; i < 456; i += 24 {
-		level1.wallTileList = append(level1.wallTileList, winTileLst[i])
-		wallSprite.Draw(wallBatch, pixel.IM.Moved(winTileLst[i].Center()))
-	}
-	for i := 456; i < 465; i++ {
-		level1.wallTileList = append(level1.wallTileList, winTileLst[i])
-		wallSprite.Draw(wallBatch, pixel.IM.Moved(winTileLst[i].Center()))
-	}
-	for i := 471; i < len(winTileLst); i++ {
-		level1.wallTileList = append(level1.wallTileList, winTileLst[i])
-		wallSprite.Draw(wallBatch, pixel.IM.Moved(winTileLst[i].Center()))
-	}
-	for i := 125; i < 342; i += 24 {
-		level1.wallTileList = append(level1.wallTileList, winTileLst[i])
-		wallSprite.Draw(wallBatch, pixel.IM.Moved(winTileLst[i].Center()))
-	}
-	for i := 246; i < 258; i++ {
-		level1.wallTileList = append(level1.wallTileList, winTileLst[i])
-		wallSprite.Draw(wallBatch, pixel.IM.Moved(winTileLst[i].Center()))
-	}
-	for i := 138; i < 355; i += 24 {
-		level1.wallTileList = append(level1.wallTileList, winTileLst[i])
-		wallSprite.Draw(wallBatch, pixel.IM.Moved(winTileLst[i].Center()))
-	}
-	return level1
 }
 
 func makePlayArea(lvl level, enemySpite pixel.Sprite, winTileList []pixel.Rect) playArea {
@@ -675,3 +653,193 @@ func determineEnemyShotDeltaMove(heroObj *hero, initialEnemyShotLocation pixel.V
 }
 
 // create board for level 1 - first determine which tiles will be
+
+// --------- Level Layouts -------------------------
+
+// builds level1 object
+func makeLevel1(wallPic pixel.Picture, wallSprite *pixel.Sprite, winTileLst []pixel.Rect) level {
+
+	wallBatch := makeWallBatch(wallPic)
+	var level1WallList []pixel.Rect
+
+	// wallList holds all rects
+	level1 := level{level1WallList, wallBatch, "Level 1", 1}
+
+	// Add wall tiles appropriate to level1 and draw wall sprites to level1 batch
+	// bottom wall
+	for i := 0; i < 24; i++ {
+		level1.wallTileList = append(level1.wallTileList, winTileLst[i])
+		wallSprite.Draw(wallBatch, pixel.IM.Moved(winTileLst[i].Center()))
+	}
+	// left wall
+	for i := 24; i < 456; i += 24 {
+		level1.wallTileList = append(level1.wallTileList, winTileLst[i])
+		wallSprite.Draw(wallBatch, pixel.IM.Moved(winTileLst[i].Center()))
+	}
+	// right wall
+	for i := 47; i < 456; i += 24 {
+		level1.wallTileList = append(level1.wallTileList, winTileLst[i])
+		wallSprite.Draw(wallBatch, pixel.IM.Moved(winTileLst[i].Center()))
+	}
+	// top left wall
+	for i := 456; i < 465; i++ {
+		level1.wallTileList = append(level1.wallTileList, winTileLst[i])
+		wallSprite.Draw(wallBatch, pixel.IM.Moved(winTileLst[i].Center()))
+	}
+	// top right wall
+	for i := 471; i < len(winTileLst); i++ {
+		level1.wallTileList = append(level1.wallTileList, winTileLst[i])
+		wallSprite.Draw(wallBatch, pixel.IM.Moved(winTileLst[i].Center()))
+	}
+	// left inside wall
+	for i := 125; i < 342; i += 24 {
+		level1.wallTileList = append(level1.wallTileList, winTileLst[i])
+		wallSprite.Draw(wallBatch, pixel.IM.Moved(winTileLst[i].Center()))
+	}
+	// middle wall
+	for i := 246; i < 258; i++ {
+		level1.wallTileList = append(level1.wallTileList, winTileLst[i])
+		wallSprite.Draw(wallBatch, pixel.IM.Moved(winTileLst[i].Center()))
+	}
+	// right inside wall
+	for i := 138; i < 355; i += 24 {
+		level1.wallTileList = append(level1.wallTileList, winTileLst[i])
+		wallSprite.Draw(wallBatch, pixel.IM.Moved(winTileLst[i].Center()))
+	}
+	return level1
+}
+
+// builds level2 object
+func makeLevel2(wallPic pixel.Picture, wallSprite *pixel.Sprite, winTileLst []pixel.Rect) level {
+
+	wallBatch := makeWallBatch(wallPic)
+	var level1WallList []pixel.Rect
+
+	// wallList holds all rects
+	level2 := level{level1WallList, wallBatch, "Level 2", 2}
+
+	// Add wall tiles appropriate to level1 and draw wall sprites to level1 batch
+	// bottom wall
+	for i := 0; i < 24; i++ {
+		level2.wallTileList = append(level2.wallTileList, winTileLst[i])
+		wallSprite.Draw(wallBatch, pixel.IM.Moved(winTileLst[i].Center()))
+	}
+	// left wall
+	for i := 24; i < 456; i += 24 {
+		level2.wallTileList = append(level2.wallTileList, winTileLst[i])
+		wallSprite.Draw(wallBatch, pixel.IM.Moved(winTileLst[i].Center()))
+	}
+	// right wall
+	for i := 47; i < 456; i += 24 {
+		level2.wallTileList = append(level2.wallTileList, winTileLst[i])
+		wallSprite.Draw(wallBatch, pixel.IM.Moved(winTileLst[i].Center()))
+	}
+	// top left wall
+	for i := 456; i < 465; i++ {
+		level2.wallTileList = append(level2.wallTileList, winTileLst[i])
+		wallSprite.Draw(wallBatch, pixel.IM.Moved(winTileLst[i].Center()))
+	}
+	// top right wall
+	for i := 471; i < len(winTileLst); i++ {
+		level2.wallTileList = append(level2.wallTileList, winTileLst[i])
+		wallSprite.Draw(wallBatch, pixel.IM.Moved(winTileLst[i].Center()))
+	}
+	// left inside wall
+	for i := 197; i < 293; i += 24 {
+		level2.wallTileList = append(level2.wallTileList, winTileLst[i])
+		wallSprite.Draw(wallBatch, pixel.IM.Moved(winTileLst[i].Center()))
+	}
+	// middle wall
+	for i := 246; i < 258; i++ {
+		level2.wallTileList = append(level2.wallTileList, winTileLst[i])
+		wallSprite.Draw(wallBatch, pixel.IM.Moved(winTileLst[i].Center()))
+	}
+	// right inside wall
+	for i := 211; i < 308; i += 24 {
+		level2.wallTileList = append(level2.wallTileList, winTileLst[i])
+		wallSprite.Draw(wallBatch, pixel.IM.Moved(winTileLst[i].Center()))
+	}
+	return level2
+}
+
+// builds level3 object
+func makeLevel3(wallPic pixel.Picture, wallSprite *pixel.Sprite, winTileLst []pixel.Rect) level {
+
+	wallBatch := makeWallBatch(wallPic)
+	var level1WallList []pixel.Rect
+
+	// wallList holds all rects
+	level3 := level{level1WallList, wallBatch, "Level 3", 3}
+
+	// Add wall tiles appropriate to level1 and draw wall sprites to level1 batch
+	// bottom wall
+	for i := 0; i < 24; i++ {
+		level3.wallTileList = append(level3.wallTileList, winTileLst[i])
+		wallSprite.Draw(wallBatch, pixel.IM.Moved(winTileLst[i].Center()))
+	}
+	// left wall
+	for i := 24; i < 456; i += 24 {
+		level3.wallTileList = append(level3.wallTileList, winTileLst[i])
+		wallSprite.Draw(wallBatch, pixel.IM.Moved(winTileLst[i].Center()))
+	}
+	// right wall
+	for i := 47; i < 456; i += 24 {
+		level3.wallTileList = append(level3.wallTileList, winTileLst[i])
+		wallSprite.Draw(wallBatch, pixel.IM.Moved(winTileLst[i].Center()))
+	}
+	// top left wall
+	for i := 456; i < 465; i++ {
+		level3.wallTileList = append(level3.wallTileList, winTileLst[i])
+		wallSprite.Draw(wallBatch, pixel.IM.Moved(winTileLst[i].Center()))
+	}
+	// top right wall
+	for i := 471; i < len(winTileLst); i++ {
+		level3.wallTileList = append(level3.wallTileList, winTileLst[i])
+		wallSprite.Draw(wallBatch, pixel.IM.Moved(winTileLst[i].Center()))
+	}
+	// middle wall
+	for i := 246; i < 258; i++ {
+		level3.wallTileList = append(level3.wallTileList, winTileLst[i])
+		wallSprite.Draw(wallBatch, pixel.IM.Moved(winTileLst[i].Center()))
+	}
+	return level3
+}
+
+// builds level4 object
+func makeLevel4(wallPic pixel.Picture, wallSprite *pixel.Sprite, winTileLst []pixel.Rect) level {
+
+	wallBatch := makeWallBatch(wallPic)
+	var level1WallList []pixel.Rect
+
+	// wallList holds all rects
+	level4 := level{level1WallList, wallBatch, "Level 4", 4}
+
+	// Add wall tiles appropriate to level1 and draw wall sprites to level1 batch
+	// bottom wall
+	for i := 0; i < 24; i++ {
+		level4.wallTileList = append(level4.wallTileList, winTileLst[i])
+		wallSprite.Draw(wallBatch, pixel.IM.Moved(winTileLst[i].Center()))
+	}
+	// left wall
+	for i := 24; i < 456; i += 24 {
+		level4.wallTileList = append(level4.wallTileList, winTileLst[i])
+		wallSprite.Draw(wallBatch, pixel.IM.Moved(winTileLst[i].Center()))
+	}
+	// right wall
+	for i := 47; i < 456; i += 24 {
+		level4.wallTileList = append(level4.wallTileList, winTileLst[i])
+		wallSprite.Draw(wallBatch, pixel.IM.Moved(winTileLst[i].Center()))
+	}
+	// top left wall
+	for i := 456; i < 465; i++ {
+		level4.wallTileList = append(level4.wallTileList, winTileLst[i])
+		wallSprite.Draw(wallBatch, pixel.IM.Moved(winTileLst[i].Center()))
+	}
+	// top right wall
+	for i := 471; i < len(winTileLst); i++ {
+		level4.wallTileList = append(level4.wallTileList, winTileLst[i])
+		wallSprite.Draw(wallBatch, pixel.IM.Moved(winTileLst[i].Center()))
+	}
+
+	return level4
+}
