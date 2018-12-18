@@ -669,7 +669,7 @@ func makePlayArea(lvl level, enemySpite pixel.Sprite, winTileList []pixel.Rect) 
 	var enemyList []darkMage
 
 	// this is all unoccupied blocks in this play area (all window tiles - level wall blocks)
-	availableBlockList := getAvailableTiles(winTileList, lvl.wallTileList)
+	availableBlockList := getAvailableTiles(winTileList, lvl)
 
 	// build enemy list
 	for i := 0; i < 4+(2*lvl.levelNum); i++ {
@@ -695,10 +695,12 @@ func makePlayArea(lvl level, enemySpite pixel.Sprite, winTileList []pixel.Rect) 
 }
 
 // subtracts occupied tiles from list off all window tiles
-func getAvailableTiles(allWinTiles []pixel.Rect, occupiedList []pixel.Rect) []pixel.Rect {
+func getAvailableTiles(allWinTiles []pixel.Rect, lvl level) []pixel.Rect {
 
 	var availableBlocks []pixel.Rect
 	var validSpot bool
+	// add level wall tile rects with adjWall tile rects
+	occupiedList := append(lvl.wallTileList, lvl.adjacentWallTiles...)
 
 	for i := 0; i < len(allWinTiles); i++ {
 		validSpot = true
