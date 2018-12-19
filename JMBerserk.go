@@ -555,7 +555,7 @@ func run() {
 					}
 				}
 
-				// check for hero collision with wall
+				// check for hero collision with enemy
 				for i := 0; i < len(playArea.enemyList); i++ {
 					if hero.hitBox.Intersect(playArea.enemyList[i].hitBox) !=
 						pixel.R(0, 0, 0, 0) {

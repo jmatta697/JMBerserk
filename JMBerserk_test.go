@@ -6,6 +6,17 @@ import (
 )
 
 func TestGetAvailableTiles(t *testing.T) {
+
+	wallBlockPic, _ := loadPicture("wall_block.png")
+
+	// general use wall batch
+	// wallBatch := makeWallBatch(wallBlockPic)
+	// wallBatch.Clear()
+	// floorBlock := pixel.NewSprite(floorWallSheet, wallFloorFrames[0])
+
+	// SPRITES
+	wallBlockSprite := pixel.NewSprite(wallBlockPic, wallBlockPic.Bounds())
+
 	masterTileList := []pixel.Rect{
 		{pixel.V(1, 1), pixel.V(2, 2)},
 		{pixel.V(3, 3), pixel.V(4, 4)},
@@ -27,7 +38,10 @@ func TestGetAvailableTiles(t *testing.T) {
 		{pixel.V(11, 11), pixel.V(12, 12)},
 	}
 
-	actualResult := getAvailableTiles(masterTileList, sampleOccupiedList)
+	// level 1 wall setup
+	sampleLevel := makeLevel1(wallBlockPic, wallBlockSprite, sampleOccupiedList)
+
+	actualResult := getAvailableTiles(masterTileList, sampleLevel)
 
 	match := true
 	for i := range actualResult {
